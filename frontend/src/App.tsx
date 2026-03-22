@@ -2759,6 +2759,10 @@ export default function App() {
   const [investBalances, setInvestBalances] = useState<InvestBalances>(loadInvest)
   const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const skipFetchUntilRef = useRef<number>(loadSkipUntil()) // restore from localStorage on reload
+  // Last XLM balance seen from Horizon — only update display when Horizon shows a REAL change
+  const lastHorizonXlmRef = useRef<number>(
+    Number(localStorage.getItem('centurion_last_horizon_xlm') || '-1')
+  )
 
   const updateInvest = useCallback((fn: (prev: InvestBalances) => InvestBalances) => {
     setInvestBalances(prev => {
@@ -2788,8 +2792,6 @@ export default function App() {
   }, [])
 
   const fetchData = useCallback(async (publicKey: string) => {
-    // Skip if a payment just happened — let optimistic balance stay visible
-    if (Date.now() < skipFetchUntilRef.current) return
     setDataLoading(true)
     try {
       const [bals, txs, led] = await Promise.all([
@@ -2797,12 +2799,22 @@ export default function App() {
         getTransactions(publicKey, 20),
         getLatestLedger(),
       ])
-      if (bals.length > 0) setBalancesPersisted(bals)
+      if (bals.length > 0) {
+        const horizonXlm = bals.find(b => b.code === 'XLM')?.amount ?? -1
+        const prev = lastHorizonXlmRef.current
+        // Only overwrite the displayed balance when Stellar actually confirms a change
+        if (prev < 0 || Math.abs(horizonXlm - prev) > 0.0001) {
+          lastHorizonXlmRef.current = horizonXlm
+          localStorage.setItem('centurion_last_horizon_xlm', String(horizonXlm))
+          setBalancesPersisted(bals)
+        }
+        // Always update transactions and ledger (these don't affect displayed balance)
+      }
       if (txs.length > 0) setTransactions(txs)
       if (led > 0) setLedger(led)
     } catch { /* silently fail */ }
     setDataLoading(false)
-  }, [])
+  }, [setBalancesPersisted])
 
   // After a payment, poll Horizon every 2s — only update state when real change detected
   const pollUntilBalanceChanges = useCallback(async (publicKey: string, prevXlm: number) => {
