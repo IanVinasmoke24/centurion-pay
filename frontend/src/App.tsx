@@ -48,6 +48,21 @@ const TRANS = {
     invalidAddr: 'Dirección inválida. Debe comenzar con G y tener 56 caracteres.',
     // History
     historyTitle: 'Historial', transactions: 'transacciones', noHistory: 'Sin historial aún.',
+    // Wallet setup
+    tagline: 'Pagos instantáneos en la red Stellar.', taglineSub: 'Sin banco. Sin fronteras.',
+    createWallet: 'Crear Billetera Nueva', importWallet: 'Importar Clave Secreta',
+    testnetWarning: '⚠️ Demo en Testnet. No uses fondos reales.',
+    walletCreated: '✓ BILLETERA CREADA', yourPublicAddr: 'Tu dirección pública:',
+    copyAddr: '⎘ Copiar Dirección', copied: '✓ Copiada',
+    saveKeyWarning: '🔐 Guarda tu clave secreta de forma segura. Si la pierdes, perderás acceso a tus fondos.',
+    importLabel: 'Ingresa tu clave secreta de Stellar (empieza con S...):',
+    importBtn: 'Importar', invalidKey: 'Clave secreta inválida. Debe comenzar con S y tener 56 caracteres.',
+    // Onboarding
+    setupAccount: 'Configura tu cuenta', setupAccountSub: 'Fondea tu cuenta en Testnet para comenzar',
+    yourStellarAddr: 'Tu dirección Stellar:', copy: '⎘ Copiar',
+    accountFunded: '✓ CUENTA FONDEADA', funding: 'Fondeando...',
+    fundBtn: '🚀 Fondear Cuenta Testnet (Gratis)', startBtn: '¡Comenzar! →',
+    testnetWarning2: '⚠️ Esto es un demo en Testnet. No uses fondos reales.',
     // Common
     back: '← Volver', done: 'Listo', retry: 'Reintentar', loading: 'Cargando...',
     seconds: 's', approxSeconds: '~5s/bloque',
@@ -90,6 +105,21 @@ const TRANS = {
     invalidAddr: 'Invalid address. Must start with G and be 56 characters.',
     // History
     historyTitle: 'History', transactions: 'transactions', noHistory: 'No history yet.',
+    // Wallet setup
+    tagline: 'Instant payments on the Stellar network.', taglineSub: 'No bank. No borders.',
+    createWallet: 'Create New Wallet', importWallet: 'Import Secret Key',
+    testnetWarning: '⚠️ Testnet Demo. Do not use real funds.',
+    walletCreated: '✓ WALLET CREATED', yourPublicAddr: 'Your public address:',
+    copyAddr: '⎘ Copy Address', copied: '✓ Copied',
+    saveKeyWarning: '🔐 Save your secret key securely. If you lose it, you will lose access to your funds.',
+    importLabel: 'Enter your Stellar secret key (starts with S...):',
+    importBtn: 'Import', invalidKey: 'Invalid secret key. Must start with S and be 56 characters.',
+    // Onboarding
+    setupAccount: 'Set up your account', setupAccountSub: 'Fund your Testnet account to get started',
+    yourStellarAddr: 'Your Stellar address:', copy: '⎘ Copy',
+    accountFunded: '✓ ACCOUNT FUNDED', funding: 'Funding...',
+    fundBtn: '🚀 Fund Testnet Account (Free)', startBtn: "Let's go! →",
+    testnetWarning2: '⚠️ This is a Testnet demo. Do not use real funds.',
     // Common
     back: '← Back', done: 'Done', retry: 'Retry', loading: 'Loading...',
     seconds: 's', approxSeconds: '~5s/block',
@@ -320,6 +350,7 @@ function StellarBadge({ ledger }: { ledger: number }) {
 
 // ─── SCREEN: WALLET SETUP ─────────────────────────────────────────────────────
 function WalletSetup({ onWalletReady }: { onWalletReady: (wallet: { publicKey: string; secretKey: string }) => void }) {
+  const { t } = useT()
   const [mode, setMode] = useState<'landing' | 'created' | 'import'>('landing')
   const [wallet, setWallet] = useState<{ publicKey: string; secretKey: string } | null>(null)
   const [importSecret, setImportSecret] = useState('')
@@ -383,8 +414,8 @@ function WalletSetup({ onWalletReady }: { onWalletReady: (wallet: { publicKey: s
         {mode === 'landing' && (
           <>
             <p style={{ fontSize: 16, color: C.text, marginBottom: 36, lineHeight: 1.5 }}>
-              Pagos instantáneos en la red Stellar.<br />
-              <span style={{ color: C.gold }}>Sin banco. Sin fronteras.</span>
+              {t.tagline}<br />
+              <span style={{ color: C.gold }}>{t.taglineSub}</span>
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <button onClick={handleCreate} style={{
@@ -395,7 +426,7 @@ function WalletSetup({ onWalletReady }: { onWalletReady: (wallet: { publicKey: s
                 boxShadow: `0 8px 32px ${C.primaryGlow}`,
                 animation: 'glow 3s ease-in-out infinite',
               }}>
-                Crear Billetera Nueva
+                {t.createWallet}
               </button>
               <button onClick={() => setMode('import')} style={{
                 padding: '14px 24px',
@@ -403,7 +434,7 @@ function WalletSetup({ onWalletReady }: { onWalletReady: (wallet: { publicKey: s
                 border: `1px solid ${C.border}`, borderRadius: 14, color: C.textMuted,
                 fontSize: 14, fontWeight: 600, cursor: 'pointer',
               }}>
-                Importar Clave Secreta
+                {t.importWallet}
               </button>
             </div>
             <div style={{
@@ -411,7 +442,7 @@ function WalletSetup({ onWalletReady }: { onWalletReady: (wallet: { publicKey: s
               background: 'rgba(245,158,11,0.08)', border: `1px solid rgba(245,158,11,0.2)`,
               borderRadius: 10, fontSize: 11, color: C.gold, lineHeight: 1.5,
             }}>
-              ⚠️ Demo en Testnet. No uses fondos reales.
+              {t.testnetWarning}
             </div>
           </>
         )}
@@ -424,9 +455,9 @@ function WalletSetup({ onWalletReady }: { onWalletReady: (wallet: { publicKey: s
               boxShadow: `inset 0 0 20px ${C.greenGlow}`,
             }}>
               <p style={{ fontSize: 12, color: C.green, fontWeight: 700, marginBottom: 8, letterSpacing: '0.05em' }}>
-                ✓ BILLETERA CREADA
+                {t.walletCreated}
               </p>
-              <p style={{ fontSize: 11, color: C.textDim, marginBottom: 6 }}>Tu dirección pública:</p>
+              <p style={{ fontSize: 11, color: C.textDim, marginBottom: 6 }}>{t.yourPublicAddr}</p>
               <p style={{ fontSize: 11, fontFamily: 'monospace', color: C.text, wordBreak: 'break-all', marginBottom: 12, lineHeight: 1.6 }}>
                 {wallet.publicKey}
               </p>
@@ -436,7 +467,7 @@ function WalletSetup({ onWalletReady }: { onWalletReady: (wallet: { publicKey: s
                 fontSize: 12, cursor: 'pointer', fontWeight: 600,
                 transition: 'color 0.2s',
               }}>
-                {copied ? '✓ Copiada' : '⎘ Copiar Dirección'}
+                {copied ? t.copied : t.copyAddr}
               </button>
             </div>
             <div style={{
@@ -444,7 +475,7 @@ function WalletSetup({ onWalletReady }: { onWalletReady: (wallet: { publicKey: s
               borderRadius: 10, padding: 12, marginBottom: 20,
               fontSize: 11, color: '#ef9999', lineHeight: 1.6,
             }}>
-              🔐 Guarda tu clave secreta de forma segura. Si la pierdes, perderás acceso a tus fondos.
+              {t.saveKeyWarning}
             </div>
             <button onClick={() => onWalletReady(wallet)} style={{
               width: '100%', padding: '16px 24px',
@@ -452,7 +483,7 @@ function WalletSetup({ onWalletReady }: { onWalletReady: (wallet: { publicKey: s
               border: 'none', borderRadius: 14, color: '#fff',
               fontSize: 16, fontWeight: 700, cursor: 'pointer',
             }}>
-              Continuar →
+              {t.continueBtn}
             </button>
           </div>
         )}
@@ -460,7 +491,7 @@ function WalletSetup({ onWalletReady }: { onWalletReady: (wallet: { publicKey: s
         {mode === 'import' && (
           <div className="fade-in">
             <p style={{ fontSize: 14, color: C.text, marginBottom: 16 }}>
-              Ingresa tu clave secreta de Stellar (empieza con S...):
+              {t.importLabel}
             </p>
             <textarea
               value={importSecret}
@@ -484,7 +515,7 @@ function WalletSetup({ onWalletReady }: { onWalletReady: (wallet: { publicKey: s
                 border: `1px solid ${C.border}`, borderRadius: 12, color: C.textMuted,
                 fontSize: 14, cursor: 'pointer',
               }}>
-                ← Volver
+                {t.back}
               </button>
               <button onClick={handleImport} style={{
                 flex: 2, padding: '14px',
@@ -492,7 +523,7 @@ function WalletSetup({ onWalletReady }: { onWalletReady: (wallet: { publicKey: s
                 border: 'none', borderRadius: 12, color: '#fff',
                 fontSize: 14, fontWeight: 700, cursor: 'pointer',
               }}>
-                Importar
+                {t.importBtn}
               </button>
             </div>
           </div>
@@ -510,6 +541,7 @@ function Onboarding({
   wallet: { publicKey: string; secretKey: string }
   onReady: () => void
 }) {
+  const { t } = useT()
   const [funding, setFunding] = useState(false)
   const [funded, setFunded] = useState(false)
   const [xlmBalance, setXlmBalance] = useState(0)
@@ -569,9 +601,9 @@ function Onboarding({
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <span style={{ fontSize: 44, filter: 'drop-shadow(0 0 20px rgba(245,158,11,0.5))' }}>⚡</span>
           <h2 style={{ fontSize: 26, fontWeight: 900, color: C.text, marginTop: 8, marginBottom: 6 }}>
-            Configura tu cuenta
+            {t.setupAccount}
           </h2>
-          <p style={{ fontSize: 14, color: C.textMuted }}>Fondea tu cuenta en Testnet para comenzar</p>
+          <p style={{ fontSize: 14, color: C.textMuted }}>{t.setupAccountSub}</p>
         </div>
 
         {/* Public key card */}
@@ -579,7 +611,7 @@ function Onboarding({
           background: C.card, border: `1px solid ${C.border}`,
           borderRadius: 14, padding: 16, marginBottom: 16,
         }}>
-          <p style={{ fontSize: 11, color: C.textDim, marginBottom: 6 }}>Tu dirección Stellar:</p>
+          <p style={{ fontSize: 11, color: C.textDim, marginBottom: 6 }}>{t.yourStellarAddr}</p>
           <p style={{ fontSize: 10, fontFamily: 'monospace', color: C.textMuted, wordBreak: 'break-all', marginBottom: 10, lineHeight: 1.6 }}>
             {wallet.publicKey}
           </p>
@@ -588,7 +620,7 @@ function Onboarding({
             borderRadius: 8, color: copied ? C.green : C.textMuted,
             fontSize: 12, cursor: 'pointer', transition: 'color 0.2s',
           }}>
-            {copied ? '✓ Copiada' : '⎘ Copiar'}
+            {copied ? t.copied : t.copy}
           </button>
         </div>
 
@@ -599,7 +631,7 @@ function Onboarding({
             borderRadius: 14, padding: 16, marginBottom: 16,
             boxShadow: `inset 0 0 20px ${C.greenGlow}`,
           }}>
-            <p style={{ fontSize: 11, color: C.green, fontWeight: 700, marginBottom: 4 }}>✓ CUENTA FONDEADA</p>
+            <p style={{ fontSize: 11, color: C.green, fontWeight: 700, marginBottom: 4 }}>{t.accountFunded}</p>
             <p style={{ fontSize: 28, fontWeight: 900, color: C.text }}>
               {fmt(xlmBalance, 4)} <span style={{ fontSize: 14, color: C.textMuted }}>XLM</span>
             </p>
@@ -626,7 +658,7 @@ function Onboarding({
               fontSize: 15, fontWeight: 700, cursor: funding ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
             }}>
-              {funding ? <><Spinner size={18} color={C.textMuted} /> Fondeando...</> : '🚀 Fondear Cuenta Testnet (Gratis)'}
+              {funding ? <><Spinner size={18} color={C.textMuted} /> {t.funding}</> : t.fundBtn}
             </button>
           )}
           {funded && (
@@ -637,7 +669,7 @@ function Onboarding({
               fontSize: 16, fontWeight: 700, cursor: 'pointer',
               animation: 'glow 3s ease-in-out infinite',
             }}>
-              ¡Comenzar! →
+              {t.startBtn}
             </button>
           )}
         </div>
@@ -647,7 +679,7 @@ function Onboarding({
           background: 'rgba(245,158,11,0.08)', border: `1px solid rgba(245,158,11,0.2)`,
           borderRadius: 10, fontSize: 11, color: C.gold, lineHeight: 1.5, textAlign: 'center',
         }}>
-          ⚠️ Esto es un demo en Testnet. No uses fondos reales.
+          {t.testnetWarning2}
         </div>
       </div>
     </div>
