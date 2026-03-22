@@ -2586,22 +2586,45 @@ function saveInvestTx(tx: InvestTx) {
   localStorage.setItem('centurion_invest_txs', JSON.stringify(txs.slice(0, 50)))
 }
 
+// Persist displayed balances across reloads/navigation
+function loadCachedBalances(): Balance[] {
+  try { return JSON.parse(localStorage.getItem('centurion_balances') || '[]') } catch { return [] }
+}
+function saveCachedBalances(b: Balance[]) {
+  localStorage.setItem('centurion_balances', JSON.stringify(b))
+}
+function loadSkipUntil(): number {
+  return Number(localStorage.getItem('centurion_skip_until') || '0')
+}
+function saveSkipUntil(ts: number) {
+  localStorage.setItem('centurion_skip_until', String(ts))
+}
+
 export default function App() {
   const [appState, setAppState] = useState<AppState>('wallet-setup')
   const [wallet, setWallet] = useState<{ publicKey: string; secretKey: string } | null>(null)
   const [view, setView] = useState('home')
-  const [balances, setBalances] = useState<Balance[]>([])
+  const [balances, setBalances] = useState<Balance[]>(loadCachedBalances)
   const [transactions, setTransactions] = useState<StellarTransaction[]>([])
   const [ledger, setLedger] = useState(0)
   const [dataLoading, setDataLoading] = useState(false)
   const [investBalances, setInvestBalances] = useState<InvestBalances>(loadInvest)
   const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const skipFetchUntilRef = useRef<number>(0) // timestamp — skip fetchData until after this
+  const skipFetchUntilRef = useRef<number>(loadSkipUntil()) // restore from localStorage on reload
 
   const updateInvest = useCallback((fn: (prev: InvestBalances) => InvestBalances) => {
     setInvestBalances(prev => {
       const next = fn(prev)
       saveInvest(next)
+      return next
+    })
+  }, [])
+
+  // Wrapper that persists balances to localStorage on every change
+  const setBalancesPersisted = useCallback((bals: Balance[] | ((prev: Balance[]) => Balance[])) => {
+    setBalances(prev => {
+      const next = typeof bals === 'function' ? bals(prev) : bals
+      saveCachedBalances(next)
       return next
     })
   }, [])
@@ -2626,7 +2649,7 @@ export default function App() {
         getTransactions(publicKey, 20),
         getLatestLedger(),
       ])
-      if (bals.length > 0) setBalances(bals)
+      if (bals.length > 0) setBalancesPersisted(bals)
       if (txs.length > 0) setTransactions(txs)
       if (led > 0) setLedger(led)
     } catch { /* silently fail */ }
@@ -2641,7 +2664,7 @@ export default function App() {
       const newXlm = bals.find(b => b.code === 'XLM')?.amount ?? 0
       // Only overwrite optimistic state when Horizon confirms a real change
       if (bals.length > 0 && Math.abs(newXlm - prevXlm) > 0.0001) {
-        setBalances(bals)
+        setBalancesPersisted(bals)
         break
       }
     }
@@ -2701,31 +2724,37 @@ export default function App() {
   // Called after outgoing/incoming payment — polls until balance actually changes
   const handleRefreshAfterPayment = useCallback(() => {
     if (!wallet) return
-    // Block the 10s interval from overwriting optimistic balance for 20s
-    skipFetchUntilRef.current = Date.now() + 20000
+    // Block the 10s interval from overwriting optimistic balance for 20s (persisted across reloads)
+    const until = Date.now() + 20000
+    skipFetchUntilRef.current = until
+    saveSkipUntil(until)
     const prevXlm = balances.find(b => b.code === 'XLM')?.amount ?? 0
     pollUntilBalanceChanges(wallet.publicKey, prevXlm)
   }, [wallet, balances, pollUntilBalanceChanges])
 
   // Instantly add XLM to displayed balance when receiving a payment
   const handleReceiveXlm = useCallback((xlm: number) => {
-    skipFetchUntilRef.current = Date.now() + 30000 // block interval for 30s
-    setBalances(prev => {
+    const until = Date.now() + 30000
+    skipFetchUntilRef.current = until
+    saveSkipUntil(until)
+    setBalancesPersisted(prev => {
       const hasXlm = prev.some(b => b.code === 'XLM')
       if (hasXlm) {
         return prev.map(b => b.code === 'XLM' ? { ...b, amount: b.amount + xlm } : b)
       }
       return [...prev, { asset: 'XLM', code: 'XLM', amount: xlm }]
     })
-  }, [])
+  }, [setBalancesPersisted])
 
   // Instantly deduct XLM from displayed balance when sending a payment
   const handleSendXlm = useCallback((xlm: number) => {
-    skipFetchUntilRef.current = Date.now() + 30000 // block interval for 30s
-    setBalances(prev =>
+    const until = Date.now() + 30000
+    skipFetchUntilRef.current = until
+    saveSkipUntil(until)
+    setBalancesPersisted(prev =>
       prev.map(b => b.code === 'XLM' ? { ...b, amount: Math.max(0, b.amount - xlm) } : b)
     )
-  }, [])
+  }, [setBalancesPersisted])
 
   return (
     <div style={{
