@@ -1282,16 +1282,9 @@ function ReceiveScreen({
   const [txError, setTxError] = useState('')
   const [showConfetti, setShowConfetti] = useState(false)
   const [directAmount, setDirectAmount] = useState('')
+  const [isSimDemo, setIsSimDemo] = useState(false) // true = skip real Stellar TX
 
-  // Demo: usa el propio wallet como merchant (siempre válido)
-  const DEMO_URI = buildPaymentURI({
-    destination: wallet.publicKey,
-    amount: (100 / DR.XLM_MXN).toFixed(7), // $100 MXN en XLM
-    memo: 'centurion-demo',
-    network_passphrase: NETWORK,
-  })
-
-  const handleParse = useCallback(async (uri: string) => {
+  const handleParse = useCallback(async (uri: string, simDemo = false) => {
     setParseError('')
     const p = parsePaymentURI(uri)
     if (!p || !p.destination) {
@@ -1300,6 +1293,7 @@ function ReceiveScreen({
     }
     setParsed(p)
     setDirectAmount(p.amount || '')
+    setIsSimDemo(simDemo)
     setStep(2)
 
     // Check if path payment needed
@@ -1320,9 +1314,16 @@ function ReceiveScreen({
     }
   }, [wallet.publicKey])
 
+  // Demo: amount=$100 MXN, destination=own wallet (but we skip the real TX)
   const handleSimScan = () => {
-    setUriInput(DEMO_URI)
-    handleParse(DEMO_URI)
+    const demoUri = buildPaymentURI({
+      destination: wallet.publicKey,
+      amount: (100 / DR.XLM_MXN).toFixed(7),
+      memo: 'centurion-demo',
+      network_passphrase: NETWORK,
+    })
+    setUriInput(demoUri)
+    handleParse(demoUri, true) // simDemo=true → will skip Stellar TX
   }
 
   const markStep = (i: number, done: boolean, error?: string) => {
@@ -1357,11 +1358,18 @@ function ReceiveScreen({
       await new Promise(r => setTimeout(r, 400))
       markStep(2, true)
 
-      // Step 3: submit
+      // Step 3: submit (or simulate)
       let hash = ''
       const destAmount = parsed.amount || directAmount || '1'
+      const xlmToSend = pathInfo
+        ? parseFloat(pathInfo.source_amount)
+        : parseFloat(destAmount)
 
-      if (parsed.assetCode && parsed.assetCode !== 'XLM' && pathInfo) {
+      if (isSimDemo) {
+        // Demo mode: skip real Stellar TX, just animate and deduct locally
+        await new Promise(r => setTimeout(r, 600))
+        hash = `demo-${Date.now().toString(16)}`
+      } else if (parsed.assetCode && parsed.assetCode !== 'XLM' && pathInfo) {
         // Path payment
         const sendAsset = ASSETS.XLM
         const destAsset = parsed.assetCode === 'USDC'
@@ -1401,11 +1409,8 @@ function ReceiveScreen({
       setStep(4)
       setShowConfetti(true)
       // Instantly deduct the XLM sent from displayed balance
-      const xlmSent = pathInfo
-        ? parseFloat(pathInfo.source_amount)
-        : parseFloat(destAmount)
-      if (!isNaN(xlmSent)) onSend(xlmSent)
-      onRefresh()
+      if (!isNaN(xlmToSend)) onSend(xlmToSend)
+      if (!isSimDemo) onRefresh() // only poll Horizon for real TXs
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error desconocido'
       setTxError(msg)
@@ -1424,6 +1429,7 @@ function ReceiveScreen({
     setTxError('')
     setShowConfetti(false)
     setDirectAmount('')
+    setIsSimDemo(false)
   }
 
   return (
@@ -2550,6 +2556,7 @@ export default function App() {
   const [dataLoading, setDataLoading] = useState(false)
   const [investBalances, setInvestBalances] = useState<InvestBalances>(loadInvest)
   const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const skipFetchUntilRef = useRef<number>(0) // timestamp — skip fetchData until after this
 
   const updateInvest = useCallback((fn: (prev: InvestBalances) => InvestBalances) => {
     setInvestBalances(prev => {
@@ -2570,6 +2577,8 @@ export default function App() {
   }, [])
 
   const fetchData = useCallback(async (publicKey: string) => {
+    // Skip if a payment just happened — let optimistic balance stay visible
+    if (Date.now() < skipFetchUntilRef.current) return
     setDataLoading(true)
     try {
       const [bals, txs, led] = await Promise.all([
@@ -2577,7 +2586,6 @@ export default function App() {
         getTransactions(publicKey, 20),
         getLatestLedger(),
       ])
-      // Only update balances if we got valid data (prevents blank screen on network errors)
       if (bals.length > 0) setBalances(bals)
       if (txs.length > 0) setTransactions(txs)
       if (led > 0) setLedger(led)
@@ -2585,18 +2593,19 @@ export default function App() {
     setDataLoading(false)
   }, [])
 
-  // After a payment, poll Horizon every 2s until balance changes, up to 5 attempts
+  // After a payment, poll Horizon every 2s — only update state when real change detected
   const pollUntilBalanceChanges = useCallback(async (publicKey: string, prevXlm: number) => {
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 8; i++) {
       await new Promise(r => setTimeout(r, 2000))
       const bals = await getBalances(publicKey)
       const newXlm = bals.find(b => b.code === 'XLM')?.amount ?? 0
-      if (bals.length > 0) {
+      // Only overwrite optimistic state when Horizon confirms a real change
+      if (bals.length > 0 && Math.abs(newXlm - prevXlm) > 0.0001) {
         setBalances(bals)
-        if (Math.abs(newXlm - prevXlm) > 0.0001) break // balance changed, stop polling
+        break
       }
     }
-    // Also refresh transactions
+    // Refresh transactions regardless
     const txs = await getTransactions(publicKey, 20)
     if (txs.length > 0) setTransactions(txs)
     setDataLoading(false)
@@ -2652,6 +2661,8 @@ export default function App() {
   // Called after outgoing/incoming payment — polls until balance actually changes
   const handleRefreshAfterPayment = useCallback(() => {
     if (!wallet) return
+    // Block the 10s interval from overwriting optimistic balance for 20s
+    skipFetchUntilRef.current = Date.now() + 20000
     const prevXlm = balances.find(b => b.code === 'XLM')?.amount ?? 0
     pollUntilBalanceChanges(wallet.publicKey, prevXlm)
   }, [wallet, balances, pollUntilBalanceChanges])
