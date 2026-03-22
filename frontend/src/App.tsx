@@ -831,7 +831,32 @@ function Home({
           Recientes
         </p>
 
-        {transactions.length === 0 && !loading && (
+        {/* Local USD/CETES sends/receives */}
+        {loadInvestTxs().filter(tx => tx.type === 'sent').slice(0, 3).map(tx => (
+          <div key={tx.id} style={{
+            background: C.card, border: `1px solid ${C.border}`, borderRadius: 14,
+            padding: '14px 16px', marginBottom: 8,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 38, height: 38, borderRadius: '50%',
+                background: 'rgba(239,68,68,0.15)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 16, color: C.red, flexShrink: 0,
+              }}>↑</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Enviado {tx.asset}</p>
+                <p style={{ fontSize: 11, color: C.textDim }}>{timeAgo(tx.createdAt)}</p>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <p style={{ fontSize: 14, fontWeight: 700, color: C.red }}>-${fmt(tx.amount)}</p>
+                <p style={{ fontSize: 10, color: C.textDim }}>{tx.asset}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {transactions.length === 0 && loadInvestTxs().filter(tx => tx.type === 'sent').length === 0 && !loading && (
           <div style={{
             background: C.card, border: `1px solid ${C.border}`,
             borderRadius: 14, padding: 24, textAlign: 'center',
@@ -2230,7 +2255,10 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
   const [txError, setTxError] = useState('')
   const [showConfetti, setShowConfetti] = useState(false)
 
-  const isValidAddr = /^G[A-Z2-7]{55}$/.test(destAddr.trim())
+  const isStellarAsset = asset === 'MXN'
+  const isValidAddr = isStellarAsset
+    ? /^G[A-Z2-7]{55}$/.test(destAddr.trim())
+    : destAddr.trim().length >= 2 // for USD/CETES just need a name
   const inputVal = parseFloat(amount) || 0
   const xlmBalance = balances.find(b => b.code === 'XLM')?.amount ?? 0
 
@@ -2334,22 +2362,25 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
             </div>
 
             {/* Destination */}
-            <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Dirección destino</p>
+            <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              {isStellarAsset ? 'Dirección Stellar' : 'Para quién'}
+            </p>
             <div style={{ position: 'relative', marginBottom: 6 }}>
               <input
                 value={destAddr}
                 onChange={e => setDestAddr(e.target.value)}
-                placeholder="G... dirección Stellar"
+                placeholder={isStellarAsset ? 'G... dirección Stellar' : 'Nombre o alias del destinatario'}
                 style={{
                   width: '100%', padding: '14px 40px 14px 14px', boxSizing: 'border-box',
                   background: C.card, border: `1.5px solid ${destAddr && !isValidAddr ? C.red : isValidAddr ? C.green : C.border}`,
                   borderRadius: 12, color: C.text, fontSize: 13,
-                  fontFamily: 'monospace', outline: 'none',
+                  fontFamily: isStellarAsset ? 'monospace' : 'inherit', outline: 'none',
                 }}
               />
               {isValidAddr && <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: C.green, fontSize: 16 }}>✓</span>}
             </div>
-            {destAddr && !isValidAddr && <p style={{ fontSize: 11, color: C.red, marginBottom: 8 }}>Dirección inválida. Debe comenzar con G y tener 56 caracteres.</p>}
+            {isStellarAsset && destAddr && !isValidAddr && <p style={{ fontSize: 11, color: C.red, marginBottom: 8 }}>Dirección inválida. Debe comenzar con G y tener 56 caracteres.</p>}
+            {!isStellarAsset && destAddr && destAddr.trim().length < 2 && <p style={{ fontSize: 11, color: C.red, marginBottom: 8 }}>Ingresa al menos 2 caracteres.</p>}
 
             {/* Amount */}
             <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 8, marginTop: 16, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Monto a enviar</p>
@@ -2414,7 +2445,7 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 20, marginBottom: 16 }}>
               <p style={{ fontSize: 12, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Resumen de transferencia</p>
               {[
-                { label: 'Para', value: abbrev(destAddr) },
+                { label: 'Para', value: isStellarAsset ? abbrev(destAddr) : destAddr },
                 { label: 'Envías', value: `${assetSymbol}${fmt(inputVal)} ${asset}`, color: assetColor },
                 ...(asset === 'MXN' ? [
                   { label: 'En red', value: `${xlmVal.toFixed(4)} XLM`, color: C.primary },
