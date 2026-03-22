@@ -10,7 +10,7 @@ WORKDIR /app
 
 # Install dependencies first (cache layer)
 COPY package*.json ./
-RUN npm ci --ignore-scripts
+RUN npm install --ignore-scripts
 
 # Copy source and compile
 COPY tsconfig.json ./
@@ -28,7 +28,7 @@ WORKDIR /app
 
 # Only production dependencies
 COPY package*.json ./
-RUN npm ci --omit=dev --ignore-scripts
+RUN npm install --omit=dev --ignore-scripts
 
 # Copy compiled output from builder stage
 COPY --from=builder /app/dist ./dist
