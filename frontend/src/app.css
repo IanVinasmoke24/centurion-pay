@@ -1,0 +1,28 @@
+@keyframes fadeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+@keyframes slideUp { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:translateY(0); } }
+@keyframes pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.6; transform:scale(1.08); } }
+@keyframes spin { to { transform:rotate(360deg); } }
+@keyframes ripple { 0% { transform:scale(0.8); opacity:1; } 100% { transform:scale(2.4); opacity:0; } }
+@keyframes shimmer { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
+@keyframes scanLine { 0%,100% { transform:translateY(0); } 50% { transform:translateY(140px); } }
+@keyframes checkDraw { from { stroke-dashoffset:100; } to { stroke-dashoffset:0; } }
+@keyframes circleFill { from { stroke-dashoffset:283; } to { stroke-dashoffset:0; } }
+@keyframes confettiFall0  { 0%{transform:translateY(-10px) rotate(0deg);opacity:1;}  100%{transform:translateY(600px) rotate(720deg);opacity:0;} }
+@keyframes confettiFall1  { 0%{transform:translateY(-10px) rotate(45deg);opacity:1;} 100%{transform:translateY(650px) rotate(-540deg);opacity:0;} }
+@keyframes confettiFall2  { 0%{transform:translateY(-10px) rotate(90deg);opacity:1;} 100%{transform:translateY(580px) rotate(360deg);opacity:0;} }
+@keyframes confettiFall3  { 0%{transform:translateY(-10px) rotate(135deg);opacity:1;} 100%{transform:translateY(700px) rotate(-720deg);opacity:0;} }
+@keyframes confettiFall4  { 0%{transform:translateY(-10px) rotate(180deg);opacity:1;} 100%{transform:translateY(620px) rotate(540deg);opacity:0;} }
+@keyframes confettiFall5  { 0%{transform:translateY(-10px) rotate(225deg);opacity:1;} 100%{transform:translateY(670px) rotate(-360deg);opacity:0;} }
+@keyframes bgFloat { 0%,100%{transform:translate(0,0) scale(1);} 33%{transform:translate(20px,-15px) scale(1.05);} 66%{transform:translate(-15px,20px) scale(0.97);} }
+@keyframes ledgerPing { 0%{transform:scale(1);opacity:1;} 50%{transform:scale(1.6);opacity:0.3;} 100%{transform:scale(1);opacity:1;} }
+@keyframes stepAppear { from{opacity:0;transform:translateX(-8px);} to{opacity:1;transform:translateX(0);} }
+@keyframes glow { 0%,100%{box-shadow:0 0 20px rgba(99,102,241,0.3);} 50%{box-shadow:0 0 40px rgba(99,102,241,0.6), 0 0 80px rgba(99,102,241,0.2);} }
+@keyframes numberTick { from{transform:translateY(8px);opacity:0;} to{transform:translateY(0);opacity:1;} }
+@keyframes breathe { 0%,100%{transform:scale(1);} 50%{transform:scale(1.04);} }
+
+.fade-in { animation: fadeIn 0.4s ease forwards; }
+.slide-up { animation: slideUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1e1e4a; border-radius: 2px; }

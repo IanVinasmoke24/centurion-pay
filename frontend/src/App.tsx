@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, Component, ReactNode } from 'react'
+import './app.css'
 import { QRCodeSVG } from 'qrcode.react'
 import { Asset } from '@stellar/stellar-sdk'
 import { generateWallet, loadWallet, importWallet, clearWallet } from './stellar/wallet'
@@ -24,36 +25,6 @@ const C = {
   textMuted: '#94a3b8',
   textDim: '#475569',
 }
-
-// ─── CSS ANIMATIONS ────────────────────────────────────────────────────────────
-const GLOBAL_CSS = `
-  @keyframes fadeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
-  @keyframes slideUp { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:translateY(0); } }
-  @keyframes pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.6; transform:scale(1.08); } }
-  @keyframes spin { to { transform:rotate(360deg); } }
-  @keyframes ripple { 0% { transform:scale(0.8); opacity:1; } 100% { transform:scale(2.4); opacity:0; } }
-  @keyframes shimmer { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
-  @keyframes scanLine { 0%,100% { transform:translateY(0); } 50% { transform:translateY(140px); } }
-  @keyframes checkDraw { from { stroke-dashoffset:100; } to { stroke-dashoffset:0; } }
-  @keyframes circleFill { from { stroke-dashoffset:283; } to { stroke-dashoffset:0; } }
-  @keyframes confettiFall0  { 0%{transform:translateY(-10px) rotate(0deg);opacity:1;}  100%{transform:translateY(600px) rotate(720deg);opacity:0;} }
-  @keyframes confettiFall1  { 0%{transform:translateY(-10px) rotate(45deg);opacity:1;} 100%{transform:translateY(650px) rotate(-540deg);opacity:0;} }
-  @keyframes confettiFall2  { 0%{transform:translateY(-10px) rotate(90deg);opacity:1;} 100%{transform:translateY(580px) rotate(360deg);opacity:0;} }
-  @keyframes confettiFall3  { 0%{transform:translateY(-10px) rotate(135deg);opacity:1;}100%{transform:translateY(700px) rotate(-720deg);opacity:0;} }
-  @keyframes confettiFall4  { 0%{transform:translateY(-10px) rotate(180deg);opacity:1;}100%{transform:translateY(620px) rotate(540deg);opacity:0;} }
-  @keyframes confettiFall5  { 0%{transform:translateY(-10px) rotate(225deg);opacity:1;}100%{transform:translateY(670px) rotate(-360deg);opacity:0;} }
-  @keyframes bgFloat { 0%,100%{transform:translate(0,0) scale(1);} 33%{transform:translate(20px,-15px) scale(1.05);} 66%{transform:translate(-15px,20px) scale(0.97);} }
-  @keyframes ledgerPing { 0%{transform:scale(1);opacity:1;} 50%{transform:scale(1.6);opacity:0.3;} 100%{transform:scale(1);opacity:1;} }
-  @keyframes stepAppear { from{opacity:0;transform:translateX(-8px);} to{opacity:1;transform:translateX(0);} }
-  @keyframes glow { 0%,100%{box-shadow:0 0 20px rgba(99,102,241,0.3);} 50%{box-shadow:0 0 40px rgba(99,102,241,0.6), 0 0 80px rgba(99,102,241,0.2);} }
-  @keyframes numberTick { from{transform:translateY(8px);opacity:0;} to{transform:translateY(0);opacity:1;} }
-  @keyframes breathe { 0%,100%{transform:scale(1);} 50%{transform:scale(1.04);} }
-  .fade-in { animation: fadeIn 0.4s ease forwards; }
-  .slide-up { animation: slideUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #1e1e4a; border-radius: 2px; }
-`
 
 // ─── DISPLAY RATES ────────────────────────────────────────────────────────────
 const DR = { XLM_MXN: 17.50, USDC_MXN: 17.23 }
@@ -999,8 +970,7 @@ function PayScreen({
             setReceivedAmount(amt)
             setStep(3)
             setShowConfetti(true)
-            // Small delay to ensure Horizon has fully propagated the balance update
-            setTimeout(() => onRefresh(), 1500)
+            onRefresh() // starts polling until balance changes
             return
           }
         }
@@ -1420,9 +1390,7 @@ function ReceiveScreen({
       setTxHash(hash)
       setStep(4)
       setShowConfetti(true)
-      // Wait for Stellar to index the transaction before refreshing balance (retry at 3.5s and 8s)
-      setTimeout(() => onRefresh(), 3500)
-      setTimeout(() => onRefresh(), 8000)
+      onRefresh() // starts polling until balance changes
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error desconocido'
       setTxError(msg)
@@ -2293,8 +2261,7 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
         setTxHash(hash)
         setStep(4)
         setShowConfetti(true)
-        setTimeout(() => onRefresh(), 3500)
-        setTimeout(() => onRefresh(), 8000)
+        onRefresh() // starts polling until balance changes
       }
     } catch (e) {
       setTxError(e instanceof Error ? e.message : 'Error al enviar')
@@ -2593,11 +2560,28 @@ export default function App() {
         getTransactions(publicKey, 20),
         getLatestLedger(),
       ])
-      // Only update if we got real data — prevents blank screen on transient network errors
+      // Only update balances if we got valid data (prevents blank screen on network errors)
       if (bals.length > 0) setBalances(bals)
-      setTransactions(txs)
+      if (txs.length > 0) setTransactions(txs)
       if (led > 0) setLedger(led)
     } catch { /* silently fail */ }
+    setDataLoading(false)
+  }, [])
+
+  // After a payment, poll Horizon every 2s until balance changes, up to 5 attempts
+  const pollUntilBalanceChanges = useCallback(async (publicKey: string, prevXlm: number) => {
+    for (let i = 0; i < 5; i++) {
+      await new Promise(r => setTimeout(r, 2000))
+      const bals = await getBalances(publicKey)
+      const newXlm = bals.find(b => b.code === 'XLM')?.amount ?? 0
+      if (bals.length > 0) {
+        setBalances(bals)
+        if (Math.abs(newXlm - prevXlm) > 0.0001) break // balance changed, stop polling
+      }
+    }
+    // Also refresh transactions
+    const txs = await getTransactions(publicKey, 20)
+    if (txs.length > 0) setTransactions(txs)
     setDataLoading(false)
   }, [])
 
@@ -2648,10 +2632,15 @@ export default function App() {
     if (wallet) fetchData(wallet.publicKey)
   }, [wallet, fetchData])
 
+  // Called after outgoing/incoming payment — polls until balance actually changes
+  const handleRefreshAfterPayment = useCallback(() => {
+    if (!wallet) return
+    const prevXlm = balances.find(b => b.code === 'XLM')?.amount ?? 0
+    pollUntilBalanceChanges(wallet.publicKey, prevXlm)
+  }, [wallet, balances, pollUntilBalanceChanges])
+
   return (
-    <>
-      <style dangerouslySetInnerHTML={{ __html: GLOBAL_CSS }} />
-      <div style={{
+    <div style={{
         width: '100vw', height: '100dvh', maxWidth: 430, margin: '0 auto',
         background: C.bg, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         color: C.text, position: 'relative', overflow: 'hidden',
@@ -2685,14 +2674,14 @@ export default function App() {
                 <PayScreen
                   wallet={wallet}
                   onBack={() => setView('home')}
-                  onRefresh={handleRefresh}
+                  onRefresh={handleRefreshAfterPayment}
                 />
               )}
               {view === 'receive' && (
                 <ReceiveScreen
                   wallet={wallet}
                   onBack={() => setView('home')}
-                  onRefresh={handleRefresh}
+                  onRefresh={handleRefreshAfterPayment}
                 />
               )}
               {view === 'transfer' && (
@@ -2702,7 +2691,7 @@ export default function App() {
                   investBalances={investBalances}
                   updateInvest={updateInvest}
                   onBack={() => setView('home')}
-                  onRefresh={handleRefresh}
+                  onRefresh={handleRefreshAfterPayment}
                 />
               )}
               {view === 'history' && (
@@ -2727,6 +2716,5 @@ export default function App() {
           </>
         )}
       </div>
-    </>
   )
 }
