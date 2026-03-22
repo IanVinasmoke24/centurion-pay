@@ -1360,7 +1360,7 @@ function ReceiveScreen({
 
       // Step 3: submit (or simulate)
       let hash = ''
-      const destAmount = parsed.amount || directAmount || '1'
+      const destAmount = directAmount || parsed.amount || '1'
       const xlmToSend = pathInfo
         ? parseFloat(pathInfo.source_amount)
         : parseFloat(destAmount)
