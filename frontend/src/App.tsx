@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, Component, ReactNode } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { Asset } from '@stellar/stellar-sdk'
 import { generateWallet, loadWallet, importWallet, clearWallet } from './stellar/wallet'
@@ -119,6 +119,30 @@ function LogoStar({ size = 56, glow = false }: { size?: number; glow?: boolean }
         fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="2.8" strokeLinecap="round" />
     </svg>
   )
+}
+
+// ─── ERROR BOUNDARY ────────────────────────────────────────────────────────────
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props)
+    this.state = { error: null }
+  }
+  static getDerivedStateFromError(error: Error) { return { error } }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: C.bg, padding: 24, textAlign: 'center' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>⚠️</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 8 }}>Algo salió mal</div>
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 20 }}>{this.state.error.message}</div>
+          <button onClick={() => this.setState({ error: null })} style={{ padding: '12px 24px', background: C.primary, border: 'none', borderRadius: 12, color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+            Reintentar
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
 }
 
 function Spinner({ size = 20, color = C.primary }: { size?: number; color?: string }) {
@@ -260,9 +284,9 @@ function WalletSetup({ onWalletReady }: { onWalletReady: (wallet: { publicKey: s
 
   return (
     <div style={{
-      width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+      position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center', padding: 28,
-      background: C.bg, position: 'relative', overflow: 'hidden',
+      background: C.bg, overflow: 'hidden',
     }}>
       <div style={{
         position: 'absolute', width: 400, height: 400, borderRadius: '50%',
@@ -465,9 +489,9 @@ function Onboarding({
 
   return (
     <div style={{
-      width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+      position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center', padding: 28,
-      background: C.bg, overflow: 'hidden', position: 'relative',
+      background: C.bg, overflow: 'hidden',
     }}>
       <div style={{
         position: 'absolute', width: 350, height: 350, borderRadius: '50%',
@@ -604,7 +628,7 @@ function Home({
   }
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', paddingBottom: 80, background: C.bg }}>
+    <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', paddingBottom: 80, background: C.bg }}>
       {/* Top bar */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -1013,7 +1037,7 @@ function PayScreen({
   }
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', paddingBottom: 80, background: C.bg }}>
+    <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', paddingBottom: 80, background: C.bg }}>
       <Confetti show={showConfetti} />
 
       <div style={{ padding: '52px 20px 20px' }}>
@@ -1420,7 +1444,7 @@ function ReceiveScreen({
   }
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', paddingBottom: 80, background: C.bg }}>
+    <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', paddingBottom: 80, background: C.bg }}>
       <Confetti show={showConfetti} />
 
       <div style={{ padding: '52px 20px 20px' }}>
@@ -1840,7 +1864,7 @@ function HistoryScreen({
   const totalCount = transactions.length + investTxs.length
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', paddingBottom: 80, background: C.bg }}>
+    <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', paddingBottom: 80, background: C.bg }}>
       <div style={{ padding: '52px 20px 16px' }}>
         <BackBtn onBack={onBack} />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
@@ -2016,7 +2040,7 @@ function SettingsScreen({
   }
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', paddingBottom: 80, background: C.bg }}>
+    <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', paddingBottom: 80, background: C.bg }}>
       <div style={{ padding: '52px 20px 20px' }}>
         <BackBtn onBack={onBack} />
         <h2 style={{ fontSize: 22, fontWeight: 800, color: C.text, marginTop: 12, marginBottom: 4 }}>
@@ -2276,7 +2300,7 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
   }
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', paddingBottom: 80, background: C.bg }}>
+    <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', paddingBottom: 80, background: C.bg }}>
       <Confetti show={showConfetti} />
       <div style={{ padding: '52px 20px 16px' }}>
         <BackBtn onBack={onBack} />
@@ -2634,58 +2658,60 @@ export default function App() {
 
         {appState === 'app' && wallet && (
           <>
-            {view === 'home' && (
-              <Home
-                wallet={wallet}
-                setView={setView}
-                balances={balances}
-                investBalances={investBalances}
-                updateInvest={updateInvest}
-                transactions={transactions}
-                ledger={ledger}
-                loading={dataLoading}
-                onRefresh={handleRefresh}
-              />
-            )}
-            {view === 'pay' && (
-              <PayScreen
-                wallet={wallet}
-                onBack={() => setView('home')}
-                onRefresh={handleRefresh}
-              />
-            )}
-            {view === 'receive' && (
-              <ReceiveScreen
-                wallet={wallet}
-                onBack={() => setView('home')}
-                onRefresh={handleRefresh}
-              />
-            )}
-            {view === 'transfer' && (
-              <TransferScreen
-                wallet={wallet}
-                balances={balances}
-                investBalances={investBalances}
-                updateInvest={updateInvest}
-                onBack={() => setView('home')}
-                onRefresh={handleRefresh}
-              />
-            )}
-            {view === 'history' && (
-              <HistoryScreen
-                transactions={transactions}
-                loading={dataLoading}
-                onRefresh={handleRefresh}
-                onBack={() => setView('home')}
-              />
-            )}
-            {view === 'settings' && (
-              <SettingsScreen
-                wallet={wallet}
-                onBack={() => setView('home')}
-                onClearWallet={handleClearWallet}
-              />
-            )}
+            <ErrorBoundary key={view}>
+              {view === 'home' && (
+                <Home
+                  wallet={wallet}
+                  setView={setView}
+                  balances={balances}
+                  investBalances={investBalances}
+                  updateInvest={updateInvest}
+                  transactions={transactions}
+                  ledger={ledger}
+                  loading={dataLoading}
+                  onRefresh={handleRefresh}
+                />
+              )}
+              {view === 'pay' && (
+                <PayScreen
+                  wallet={wallet}
+                  onBack={() => setView('home')}
+                  onRefresh={handleRefresh}
+                />
+              )}
+              {view === 'receive' && (
+                <ReceiveScreen
+                  wallet={wallet}
+                  onBack={() => setView('home')}
+                  onRefresh={handleRefresh}
+                />
+              )}
+              {view === 'transfer' && (
+                <TransferScreen
+                  wallet={wallet}
+                  balances={balances}
+                  investBalances={investBalances}
+                  updateInvest={updateInvest}
+                  onBack={() => setView('home')}
+                  onRefresh={handleRefresh}
+                />
+              )}
+              {view === 'history' && (
+                <HistoryScreen
+                  transactions={transactions}
+                  loading={dataLoading}
+                  onRefresh={handleRefresh}
+                  onBack={() => setView('home')}
+                />
+              )}
+              {view === 'settings' && (
+                <SettingsScreen
+                  wallet={wallet}
+                  onBack={() => setView('home')}
+                  onClearWallet={handleClearWallet}
+                />
+              )}
+            </ErrorBoundary>
 
             <BottomNav view={view} setView={setView} />
             <StellarBadge ledger={ledger} />
