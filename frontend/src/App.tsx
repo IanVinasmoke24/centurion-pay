@@ -975,7 +975,8 @@ function PayScreen({
             setReceivedAmount(amt)
             setStep(3)
             setShowConfetti(true)
-            onRefresh()
+            // Small delay to ensure Horizon has fully propagated the balance update
+            setTimeout(() => onRefresh(), 1500)
             return
           }
         }
@@ -1395,7 +1396,9 @@ function ReceiveScreen({
       setTxHash(hash)
       setStep(4)
       setShowConfetti(true)
-      onRefresh()
+      // Wait for Stellar to index the transaction before refreshing balance (retry at 3.5s and 8s)
+      setTimeout(() => onRefresh(), 3500)
+      setTimeout(() => onRefresh(), 8000)
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error desconocido'
       setTxError(msg)
@@ -2262,7 +2265,9 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
         setTxHash(hash)
         setStep(4)
         setShowConfetti(true)
-        onRefresh()
+        // Wait for Stellar to index the transaction before refreshing balance (retry at 3.5s and 8s)
+        setTimeout(() => onRefresh(), 3500)
+        setTimeout(() => onRefresh(), 8000)
       }
     } catch (e) {
       setTxError(e instanceof Error ? e.message : 'Error al enviar')
@@ -2555,9 +2560,10 @@ export default function App() {
         getTransactions(publicKey, 20),
         getLatestLedger(),
       ])
-      setBalances(bals)
+      // Only update if we got real data — prevents blank screen on transient network errors
+      if (bals.length > 0) setBalances(bals)
       setTransactions(txs)
-      setLedger(led)
+      if (led > 0) setLedger(led)
     } catch { /* silently fail */ }
     setDataLoading(false)
   }, [])
