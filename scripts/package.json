@@ -1,0 +1,19 @@
+{
+  "name": "centurion-scripts",
+  "version": "1.0.0",
+  "description": "Proyecto Centurion – Stellar testnet setup and asset issuance scripts",
+  "scripts": {
+    "setup":     "ts-node setup-testnet.ts",
+    "issue":     "ts-node issue-assets.ts",
+    "liquidity": "ts-node create-liquidity.ts",
+    "verify":    "ts-node verify-path.ts"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^12.3.0"
+  },
+  "devDependencies": {
+    "@types/node":  "^20.14.2",
+    "ts-node":      "^10.9.2",
+    "typescript":   "^5.4.5"
+  }
+}
