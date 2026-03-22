@@ -1595,8 +1595,8 @@ function ReceiveScreen({
                   type="number"
                   value={directAmount ? (parseFloat(directAmount) * DR.XLM_MXN).toFixed(2) : ''}
                   onChange={e => {
-                    const mxnVal = parseFloat(e.target.value) || 0
-                    setDirectAmount((mxnVal / DR.XLM_MXN).toFixed(7))
+                    const inputVal = parseFloat(e.target.value) || 0
+                    setDirectAmount((inputVal / DR.XLM_MXN).toFixed(7))
                   }}
                   placeholder="0.00"
                   min="0.01"
@@ -2224,7 +2224,7 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
 }) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [destAddr, setDestAddr] = useState('')
-  const [amountMxn, setAmountMxn] = useState('')
+  const [amount, setAmount] = useState('')
   const [asset, setAsset] = useState<'MXN' | 'USD' | 'CETES'>('MXN')
   const [txSteps, setTxSteps] = useState<Array<{ label: string; done: boolean }>>([])
   const [txHash, setTxHash] = useState('')
@@ -2232,19 +2232,24 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
   const [showConfetti, setShowConfetti] = useState(false)
 
   const isValidAddr = /^G[A-Z2-7]{55}$/.test(destAddr.trim())
-  const mxnVal = parseFloat(amountMxn) || 0
-  const xlmVal = mxnVal / DR.XLM_MXN
-
+  const inputVal = parseFloat(amount) || 0
   const xlmBalance = balances.find(b => b.code === 'XLM')?.amount ?? 0
 
-  // Available balance depends on selected asset
-  const availableMxn = asset === 'USD'
-    ? investBalances.usd * DR.USDC_MXN
+  // Available balance in asset's own unit
+  const available = asset === 'USD'
+    ? investBalances.usd
     : asset === 'CETES'
     ? investBalances.cetes
-    : (xlmBalance - 1) * DR.XLM_MXN
+    : Math.max(0, (xlmBalance - 1) * DR.XLM_MXN)
 
-  const insufficientFunds = mxnVal > 0 && mxnVal > availableMxn
+  // XLM to send (only used for MXN asset which goes on-chain)
+  const xlmVal = asset === 'MXN' ? inputVal / DR.XLM_MXN : 0
+
+  const insufficientFunds = inputVal > 0 && inputVal > available
+
+  // Asset display helpers
+  const assetSymbol = asset === 'CETES' ? '$' : '$'
+  const assetColor = asset === 'USD' ? C.green : asset === 'CETES' ? C.gold : C.primary
 
   const handleConfirm = async () => {
     setStep(3)
@@ -2264,13 +2269,12 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
       await new Promise(r => setTimeout(r, 400)); mark(2)
 
       if (asset === 'USD' || asset === 'CETES') {
-        // Local investment balance transfer (simulated)
-        const deductAmt = asset === 'USD' ? mxnVal / DR.USDC_MXN : mxnVal
+        // Deduct directly in asset's own units
         updateInvest(prev => asset === 'USD'
-          ? { ...prev, usd: Math.max(0, prev.usd - deductAmt) }
-          : { ...prev, cetes: Math.max(0, prev.cetes - deductAmt) }
+          ? { ...prev, usd: Math.max(0, prev.usd - inputVal) }
+          : { ...prev, cetes: Math.max(0, prev.cetes - inputVal) }
         )
-        saveInvestTx({ id: Date.now().toString(), type: 'sent', asset, amount: deductAmt, createdAt: new Date().toISOString() })
+        saveInvestTx({ id: Date.now().toString(), type: 'sent', asset, amount: inputVal, createdAt: new Date().toISOString() })
         mark(3)
         await new Promise(r => setTimeout(r, 700)); mark(4)
         setTxHash('local-' + Date.now().toString(36))
@@ -2289,7 +2293,6 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
         setTxHash(hash)
         setStep(4)
         setShowConfetti(true)
-        // Wait for Stellar to index the transaction before refreshing balance (retry at 3.5s and 8s)
         setTimeout(() => onRefresh(), 3500)
         setTimeout(() => onRefresh(), 8000)
       }
@@ -2322,7 +2325,7 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
             <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Enviar desde</p>
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
               {(['MXN', 'USD', 'CETES'] as const).map(a => (
-                <button key={a} onClick={() => setAsset(a)} style={{
+                <button key={a} onClick={() => { setAsset(a); setAmount('') }} style={{
                   flex: 1, padding: '10px', borderRadius: 10, border: 'none',
                   background: asset === a ? C.gold : C.card,
                   color: asset === a ? '#000' : C.textMuted,
@@ -2350,29 +2353,31 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
             {destAddr && !isValidAddr && <p style={{ fontSize: 11, color: C.red, marginBottom: 8 }}>Dirección inválida. Debe comenzar con G y tener 56 caracteres.</p>}
 
             {/* Amount */}
-            <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 8, marginTop: 16, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Monto</p>
+            <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 8, marginTop: 16, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Monto a enviar</p>
             <div style={{
-              background: C.card, border: `1.5px solid ${C.border}`, borderRadius: 14,
+              background: C.card, border: `1.5px solid ${insufficientFunds ? C.red : C.border}`, borderRadius: 14,
               padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
             }}>
-              <span style={{ fontSize: 24, color: C.textMuted }}>$</span>
+              <span style={{ fontSize: 24, color: assetColor }}>{assetSymbol}</span>
               <input
-                type="number" value={amountMxn}
-                onChange={e => setAmountMxn(e.target.value)}
+                type="number" value={amount}
+                onChange={e => setAmount(e.target.value)}
                 placeholder="0.00" min="0.01" step="0.01"
                 style={{
                   flex: 1, background: 'none', border: 'none', outline: 'none',
                   fontSize: 28, fontWeight: 800, color: C.text, textAlign: 'center',
                 }}
               />
-              <span style={{ fontSize: 16, color: C.textMuted, fontWeight: 600 }}>{asset}</span>
+              <span style={{ fontSize: 16, color: assetColor, fontWeight: 700 }}>{asset}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: insufficientFunds ? 4 : 20 }}>
               <p style={{ fontSize: 11, color: C.textDim }}>
-                {mxnVal > 0 ? `≈ ${xlmVal.toFixed(4)} XLM en red Stellar` : ''}
+                {asset === 'MXN' && inputVal > 0 ? `≈ ${xlmVal.toFixed(4)} XLM en red Stellar` : ''}
+                {asset === 'USD' && inputVal > 0 ? `≈ $${fmt(inputVal * DR.USDC_MXN)} MXN` : ''}
+                {asset === 'CETES' && inputVal > 0 ? `Inversión CETES • 11.25% anual` : ''}
               </p>
               <p style={{ fontSize: 11, color: C.textMuted }}>
-                Disponible: <span style={{ color: C.green, fontWeight: 600 }}>${fmt(availableMxn)} {asset}</span>
+                Disponible: <span style={{ color: assetColor, fontWeight: 600 }}>{assetSymbol}{fmt(available)} {asset}</span>
               </p>
             </div>
             {insufficientFunds && (
@@ -2383,21 +2388,21 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
               }}>
                 <span style={{ fontSize: 16 }}>⚠️</span>
                 <p style={{ fontSize: 13, color: C.red, fontWeight: 600 }}>
-                  Fondos insuficientes. Disponible: ${fmt(availableMxn)} {asset}
+                  Fondos insuficientes. Disponible: {assetSymbol}{fmt(available)} {asset}
                 </p>
               </div>
             )}
 
             <button
               onClick={() => setStep(2)}
-              disabled={!isValidAddr || mxnVal <= 0 || insufficientFunds}
+              disabled={!isValidAddr || inputVal <= 0 || insufficientFunds}
               style={{
                 width: '100%', padding: '16px', borderRadius: 14, border: 'none',
-                background: isValidAddr && mxnVal > 0 && !insufficientFunds ? `linear-gradient(135deg, ${C.gold}, #d97706)` : C.card,
-                color: isValidAddr && mxnVal > 0 && !insufficientFunds ? '#000' : C.textDim,
+                background: isValidAddr && inputVal > 0 && !insufficientFunds ? `linear-gradient(135deg, ${C.gold}, #d97706)` : C.card,
+                color: isValidAddr && inputVal > 0 && !insufficientFunds ? '#000' : C.textDim,
                 fontSize: 16, fontWeight: 700,
-                cursor: isValidAddr && mxnVal > 0 && !insufficientFunds ? 'pointer' : 'not-allowed',
-                boxShadow: isValidAddr && mxnVal > 0 && !insufficientFunds ? `0 8px 24px ${C.goldGlow}` : 'none',
+                cursor: isValidAddr && inputVal > 0 && !insufficientFunds ? 'pointer' : 'not-allowed',
+                boxShadow: isValidAddr && inputVal > 0 && !insufficientFunds ? `0 8px 24px ${C.goldGlow}` : 'none',
                 transition: 'all 0.3s',
               }}>
               Continuar →
@@ -2411,9 +2416,13 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
               <p style={{ fontSize: 12, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Resumen de transferencia</p>
               {[
                 { label: 'Para', value: abbrev(destAddr) },
-                { label: 'Envías', value: `$${fmt(mxnVal)} ${asset}`, color: C.gold },
-                { label: 'En red', value: `${xlmVal.toFixed(4)} XLM`, color: C.primary },
-                { label: 'Comisión red', value: '0.000100 XLM (~$0.002)' },
+                { label: 'Envías', value: `${assetSymbol}${fmt(inputVal)} ${asset}`, color: assetColor },
+                ...(asset === 'MXN' ? [
+                  { label: 'En red', value: `${xlmVal.toFixed(4)} XLM`, color: C.primary },
+                  { label: 'Comisión red', value: '0.000100 XLM (~$0.002)' },
+                ] : [
+                  { label: 'Tipo', value: asset === 'USD' ? 'Transferencia USD simulada' : 'Transferencia CETES simulada' },
+                ]),
                 { label: 'Tiempo', value: '~5 segundos', color: C.green },
               ].map(r => (
                 <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${C.border}` }}>
@@ -2487,7 +2496,7 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
                     style={{ animation: 'checkDraw 0.5s ease 0.6s forwards' }} />
                 </svg>
                 <h2 style={{ fontSize: 28, fontWeight: 900, color: C.text, marginBottom: 6 }}>¡Enviado!</h2>
-                <p style={{ fontSize: 22, fontWeight: 800, color: C.gold, marginBottom: 20 }}>${fmt(mxnVal)} {asset}</p>
+                <p style={{ fontSize: 22, fontWeight: 800, color: C.gold, marginBottom: 20 }}>${fmt(inputVal)} {asset}</p>
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: '14px 18px', marginBottom: 20, textAlign: 'left' }}>
                   {[
                     { label: 'Para', value: abbrev(destAddr) },
