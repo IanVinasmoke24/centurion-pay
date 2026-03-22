@@ -902,10 +902,12 @@ function PayScreen({
   wallet,
   onBack,
   onRefresh,
+  onReceive,
 }: {
   wallet: { publicKey: string; secretKey: string }
   onBack: () => void
   onRefresh: () => void
+  onReceive: (xlm: number) => void
 }) {
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [amount, setAmount] = useState('')
@@ -970,7 +972,8 @@ function PayScreen({
             setReceivedAmount(amt)
             setStep(3)
             setShowConfetti(true)
-            onRefresh() // starts polling until balance changes
+            onReceive(amt) // instantly add to displayed balance
+            onRefresh()    // also sync with Horizon
             return
           }
         }
@@ -980,20 +983,22 @@ function PayScreen({
     }, 3000)
 
     return stopAll
-  }, [step, wallet.publicKey, targetAmount, stopAll, onRefresh])
+  }, [step, wallet.publicKey, targetAmount, stopAll, onRefresh, onReceive])
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+
+  const xlmReceived = targetAmount / DR.XLM_MXN
 
   const handleSimulate = async () => {
     setSimulating(true)
     stopAll()
     await new Promise(r => setTimeout(r, 1200))
     setReceivedHash(`demo-${Date.now().toString(16)}`)
-    setReceivedAmount(targetAmount / DR.XLM_MXN)
+    setReceivedAmount(xlmReceived)
     setStep(3)
     setShowConfetti(true)
     setSimulating(false)
-    onRefresh() // poll Horizon so real balance updates if a real tx came in
+    onReceive(xlmReceived) // instantly add XLM to displayed balance
   }
 
   const resetFlow = () => {
@@ -1256,10 +1261,12 @@ function ReceiveScreen({
   wallet,
   onBack,
   onRefresh,
+  onSend,
 }: {
   wallet: { publicKey: string; secretKey: string }
   onBack: () => void
   onRefresh: () => void
+  onSend: (xlm: number) => void
 }) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [uriInput, setUriInput] = useState('')
@@ -1390,7 +1397,12 @@ function ReceiveScreen({
       setTxHash(hash)
       setStep(4)
       setShowConfetti(true)
-      onRefresh() // starts polling until balance changes
+      // Instantly deduct the XLM sent from displayed balance
+      const xlmSent = pathInfo
+        ? parseFloat(pathInfo.source_amount)
+        : parseFloat(destAmount)
+      if (!isNaN(xlmSent)) onSend(xlmSent)
+      onRefresh()
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error desconocido'
       setTxError(msg)
@@ -2182,13 +2194,14 @@ function SettingsScreen({
 }
 
 // ─── SCREEN: TRANSFER ─────────────────────────────────────────────────────────
-function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack, onRefresh }: {
+function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack, onRefresh, onSend }: {
   wallet: { publicKey: string; secretKey: string }
   balances: Balance[]
   investBalances: InvestBalances
   updateInvest: (fn: (prev: InvestBalances) => InvestBalances) => void
   onBack: () => void
   onRefresh: () => void
+  onSend: (xlm: number) => void
 }) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [destAddr, setDestAddr] = useState('')
@@ -2261,7 +2274,8 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
         setTxHash(hash)
         setStep(4)
         setShowConfetti(true)
-        onRefresh() // starts polling until balance changes
+        onSend(xlmVal) // instantly deduct from displayed balance
+        onRefresh()
       }
     } catch (e) {
       setTxError(e instanceof Error ? e.message : 'Error al enviar')
@@ -2639,6 +2653,24 @@ export default function App() {
     pollUntilBalanceChanges(wallet.publicKey, prevXlm)
   }, [wallet, balances, pollUntilBalanceChanges])
 
+  // Instantly add XLM to displayed balance when receiving a payment
+  const handleReceiveXlm = useCallback((xlm: number) => {
+    setBalances(prev => {
+      const hasXlm = prev.some(b => b.code === 'XLM')
+      if (hasXlm) {
+        return prev.map(b => b.code === 'XLM' ? { ...b, amount: b.amount + xlm } : b)
+      }
+      return [...prev, { asset: 'XLM', code: 'XLM', amount: xlm }]
+    })
+  }, [])
+
+  // Instantly deduct XLM from displayed balance when sending a payment
+  const handleSendXlm = useCallback((xlm: number) => {
+    setBalances(prev =>
+      prev.map(b => b.code === 'XLM' ? { ...b, amount: Math.max(0, b.amount - xlm) } : b)
+    )
+  }, [])
+
   return (
     <div style={{
         width: '100vw', height: '100dvh', maxWidth: 430, margin: '0 auto',
@@ -2675,6 +2707,7 @@ export default function App() {
                   wallet={wallet}
                   onBack={() => setView('home')}
                   onRefresh={handleRefreshAfterPayment}
+                  onReceive={handleReceiveXlm}
                 />
               )}
               {view === 'receive' && (
@@ -2682,6 +2715,7 @@ export default function App() {
                   wallet={wallet}
                   onBack={() => setView('home')}
                   onRefresh={handleRefreshAfterPayment}
+                  onSend={handleSendXlm}
                 />
               )}
               {view === 'transfer' && (
@@ -2692,6 +2726,7 @@ export default function App() {
                   updateInvest={updateInvest}
                   onBack={() => setView('home')}
                   onRefresh={handleRefreshAfterPayment}
+                  onSend={handleSendXlm}
                 />
               )}
               {view === 'history' && (
