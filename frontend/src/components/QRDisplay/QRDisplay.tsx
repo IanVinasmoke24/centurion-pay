@@ -38,10 +38,6 @@ function useCountdown(expiresAt: string) {
   const minutes = Math.floor(secondsLeft / 60)
   const seconds = secondsLeft % 60
   const label = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-  const totalSeconds = Math.floor(
-    (new Date(expiresAt).getTime() - Date.now() + secondsLeft * 0) / 1000 + secondsLeft
-  )
-
   return { secondsLeft, label }
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, CSSProperties } from 'react'
+import React, { useState, CSSProperties } from 'react'
 
 interface AmountInputProps {
   value: string

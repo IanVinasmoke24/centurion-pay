@@ -45,11 +45,12 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onError, onClose }
         const reader = new BrowserQRCodeReader()
         readerRef.current = reader
 
-        const devices = await BrowserQRCodeReader.listVideoInputDevices()
+        const allDevices = await navigator.mediaDevices.enumerateDevices()
+        const devices = allDevices.filter((d) => d.kind === 'videoinput')
         // Prefer back camera
         const backCamera =
           devices.find(
-            (d) =>
+            (d: MediaDeviceInfo) =>
               d.label.toLowerCase().includes('back') ||
               d.label.toLowerCase().includes('rear') ||
               d.label.toLowerCase().includes('environment')
