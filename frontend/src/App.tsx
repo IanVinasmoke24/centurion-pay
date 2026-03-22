@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { Asset } from '@stellar/stellar-sdk'
 import { generateWallet, loadWallet, importWallet, clearWallet } from './stellar/wallet'
-import { fundViaFriendbot, getBalances, getTransactions, getLatestLedger, getRecentPayments, Balance, StellarTransaction } from './stellar/horizon'
+import { fundViaFriendbot, getBalances, getTransactions, getLatestLedger, getRecentPayments, streamPayments, Balance, StellarTransaction } from './stellar/horizon'
 import { buildAndSubmitPayment, buildAndSubmitPathPayment } from './stellar/payments'
 import { buildPaymentURI, parsePaymentURI, ParsedPayment } from './stellar/qr'
 import { ASSETS, USDC_ISSUER, NETWORK } from './stellar/config'
@@ -2562,18 +2562,25 @@ export default function App() {
     setDataLoading(false)
   }, [])
 
-  // Start polling when in app state
+  // Start polling + real-time streaming when in app state
   useEffect(() => {
     if (appState !== 'app' || !wallet) return
 
     fetchData(wallet.publicKey)
 
+    // Poll every 10s as fallback
     refreshIntervalRef.current = setInterval(() => {
       fetchData(wallet.publicKey)
     }, 10000)
 
+    // Real-time stream: refresh instantly when a payment arrives
+    const stopStream = streamPayments(wallet.publicKey, () => {
+      fetchData(wallet.publicKey)
+    })
+
     return () => {
       if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current)
+      stopStream()
     }
   }, [appState, wallet, fetchData])
 

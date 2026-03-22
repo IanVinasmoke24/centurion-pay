@@ -147,3 +147,13 @@ export async function getLatestLedger(): Promise<number> {
     return 0
   }
 }
+
+// Stream incoming payments in real-time via Horizon SSE
+// Returns a cleanup function to close the stream
+export function streamPayments(publicKey: string, onPayment: () => void): () => void {
+  const url = `${HORIZON_URL}/accounts/${publicKey}/payments?cursor=now`
+  const es = new EventSource(url)
+  es.onmessage = () => onPayment()
+  es.onerror = () => {} // silently reconnect
+  return () => es.close()
+}
