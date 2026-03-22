@@ -589,8 +589,11 @@ function Home({
   const xlm = balances.find(b => b.code === 'XLM')?.amount ?? 0
   const usdc = investBalances.usd
   const cetes = investBalances.cetes
-  const mxn = Math.max(0, xlm * DR.XLM_MXN - (investBalances.mxnSpent ?? 0))
-  const totalMxn = mxn + usdc * DR.USDC_MXN + cetes
+  // MXN disponible = valor XLM total menos lo que ya está invertido en USD/CETES
+  const investedMxn = usdc * DR.USDC_MXN + cetes
+  const mxn = Math.max(0, xlm * DR.XLM_MXN - investedMxn)
+  // Total = MXN libre + inversiones (si XLM baja de lo invertido, el total es solo las inversiones)
+  const totalMxn = mxn + investedMxn
 
   const handleCopy = () => {
     navigator.clipboard.writeText(wallet.publicKey).catch(() => {})
