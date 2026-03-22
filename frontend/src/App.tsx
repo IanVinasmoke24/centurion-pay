@@ -585,6 +585,7 @@ function Home({
   const [expanded, setExpanded] = useState<string | null>(null)
   const [convertModal, setConvertModal] = useState<'USD' | 'CETES' | null>(null)
   const [convertAmt, setConvertAmt] = useState('')
+  const [convertFlash, setConvertFlash] = useState<{ mxn: number; asset: string } | null>(null)
 
   const xlm = balances.find(b => b.code === 'XLM')?.amount ?? 0
   const usdc = investBalances.usd
@@ -664,12 +665,17 @@ function Home({
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
           <div style={{
             background: C.card, borderRadius: 16, padding: '16px 14px',
-            border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.green}`,
+            border: `1px solid ${convertFlash ? C.red + '80' : C.border}`,
+            borderLeft: `3px solid ${C.green}`,
             boxShadow: `inset 0 0 20px ${C.greenGlow}`,
+            transition: 'border-color 0.3s',
           }}>
             <p style={{ fontSize: 10, color: C.textDim, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>MXN</p>
             <p style={{ fontSize: 20, fontWeight: 800, color: C.text, letterSpacing: '-0.02em' }}>${fmt(mxn)}</p>
-            <p style={{ fontSize: 10, color: C.green, marginTop: 4 }}>Disponible para pagar</p>
+            {convertFlash
+              ? <p style={{ fontSize: 10, color: C.red, marginTop: 4, fontWeight: 700 }}>−${fmt(convertFlash.mxn)} → {convertFlash.asset}</p>
+              : <p style={{ fontSize: 10, color: C.green, marginTop: 4 }}>Disponible para pagar</p>
+            }
           </div>
           <div onClick={() => { setConvertModal('USD'); setConvertAmt('') }} style={{
             background: C.card, borderRadius: 16, padding: '16px 14px',
@@ -721,6 +727,9 @@ function Home({
             saveInvestTx({ id: Date.now().toString(), type: 'converted', asset: convertModal, amount: resultAmt, createdAt: new Date().toISOString() })
             setConvertModal(null)
             setConvertAmt('')
+            // Flash indicator on MXN card
+            setConvertFlash({ mxn: mxnAmt, asset: convertModal })
+            setTimeout(() => setConvertFlash(null), 3000)
           }
           return (
             <div style={{
