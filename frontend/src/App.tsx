@@ -986,14 +986,14 @@ function PayScreen({
 
   const handleSimulate = async () => {
     setSimulating(true)
-    // Just advance to success with a fake hash for demo
     stopAll()
     await new Promise(r => setTimeout(r, 1200))
     setReceivedHash(`demo-${Date.now().toString(16)}`)
-    setReceivedAmount(targetAmount)
+    setReceivedAmount(targetAmount / DR.XLM_MXN)
     setStep(3)
     setShowConfetti(true)
     setSimulating(false)
+    onRefresh() // poll Horizon so real balance updates if a real tx came in
   }
 
   const resetFlow = () => {
