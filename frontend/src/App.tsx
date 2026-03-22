@@ -151,8 +151,8 @@ const AddressSetup: React.FC = () => {
         {/* Demo address button */}
         <button
           onClick={() => {
-            setInput('GAHTJRC6ZHFVMQJWVZQIIG3AMHPPCQVKW6RJTDOQJSMCLC6L3ZKMAEF')
             setError(null)
+            setAddress('GAHTJRC6ZHFVMQJWVZQIIG3AMHPPCQVKW6RJTDOQJSMCLC6L3ZKMAEF')
           }}
           style={{
             width: '100%',
