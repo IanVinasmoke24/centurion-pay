@@ -2669,6 +2669,7 @@ export default function App() {
 
   // Instantly add XLM to displayed balance when receiving a payment
   const handleReceiveXlm = useCallback((xlm: number) => {
+    skipFetchUntilRef.current = Date.now() + 30000 // block interval for 30s
     setBalances(prev => {
       const hasXlm = prev.some(b => b.code === 'XLM')
       if (hasXlm) {
@@ -2680,6 +2681,7 @@ export default function App() {
 
   // Instantly deduct XLM from displayed balance when sending a payment
   const handleSendXlm = useCallback((xlm: number) => {
+    skipFetchUntilRef.current = Date.now() + 30000 // block interval for 30s
     setBalances(prev =>
       prev.map(b => b.code === 'XLM' ? { ...b, amount: Math.max(0, b.amount - xlm) } : b)
     )
