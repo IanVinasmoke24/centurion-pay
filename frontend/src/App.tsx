@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, Component, ReactNode } from 'react'
+import { useState, useEffect, useRef, useCallback, Component, ReactNode, createContext, useContext } from 'react'
 import './app.css'
 import { QRCodeSVG } from 'qrcode.react'
 import { Asset } from '@stellar/stellar-sdk'
@@ -7,6 +7,99 @@ import { fundViaFriendbot, getBalances, getTransactions, getLatestLedger, getRec
 import { buildAndSubmitPayment, buildAndSubmitPathPayment } from './stellar/payments'
 import { buildPaymentURI, parsePaymentURI, ParsedPayment } from './stellar/qr'
 import { ASSETS, USDC_ISSUER, NETWORK } from './stellar/config'
+
+// ─── TRANSLATIONS ─────────────────────────────────────────────────────────────
+const TRANS = {
+  es: {
+    // Nav
+    receive: 'Cobrar', pay: 'Pagar', send: 'Enviar', history: 'Historial',
+    // Home
+    portfolioTotal: 'Portfolio Total', available: 'Disponible para pagar',
+    recent: 'Recientes', noTxs: 'Sin transacciones aún.',
+    noTxsSub: 'Haz tu primer pago para verlo aquí.',
+    investments: 'Inversiones', stellarMxn: 'Stellar (MXN)',
+    convertPlus: 'Convertir +', seeAll: 'Ver todo',
+    sent: 'Enviado', received: 'Recibido', converted: 'Conversión →',
+    // Convert modal
+    convertTitle: 'Convertir MXN →', youWillReceive: 'Recibirás',
+    rate: 'Tasa:', confirmConvert: 'Confirmar Conversión', cancel: 'Cancelar',
+    maxAvail: 'Máx. disponible:', avail: 'Disponible:',
+    // Pay screen (Cobrar)
+    receiveQR: 'Cobrar con QR', receiveQRSub: 'Genera un código QR para recibir pagos',
+    howMuch: '¿Cuánto deseas cobrar?', generateQR: 'Generar QR',
+    waitingPayment: 'Esperando pago...', simulatePayment: 'Simular Pago (Demo)',
+    paymentReceived: '¡Pago Recibido!', newCharge: 'Nuevo Cobro',
+    timeLeft: 'Tiempo restante', shareQR: 'Comparte este QR',
+    // Receive screen (Pagar)
+    payQR: 'Pagar con QR', payQRSub: 'Escanea o pega un código de pago Stellar',
+    simulateScan: 'Simular Escaneo (Demo)', pasteURI: 'O pega un URI de pago:',
+    continueBtn: 'Continuar →', paymentDetails: 'Detalles del pago',
+    destination: 'Destino', amount: 'Monto', memo: 'Memo',
+    confirmPay: 'Confirmar y Pagar', paymentSent: '¡Pago Enviado!',
+    amountToPay: 'Monto a pagar (MXN)', stellarXLM: 'en Stellar',
+    // Transfer screen
+    sendMoney: 'Enviar Dinero', sendMoneySub: 'Transfiere a cualquier dirección Stellar',
+    sendFrom: 'Enviar desde', stellarAddr: 'Dirección Stellar',
+    toWhom: 'Para quién', recipientPlaceholder: 'Nombre o alias del destinatario',
+    amountToSend: 'Monto a enviar', transferSummary: 'Resumen de transferencia',
+    to: 'Para', youSend: 'Envías', onNetwork: 'En red', networkFee: 'Comisión red',
+    time: 'Tiempo', confirmSend: 'Confirmar envío', transferSuccess: '¡Transferencia exitosa!',
+    insufficientFunds: 'Fondos insuficientes. Disponible:',
+    invalidAddr: 'Dirección inválida. Debe comenzar con G y tener 56 caracteres.',
+    // History
+    historyTitle: 'Historial', transactions: 'transacciones', noHistory: 'Sin historial aún.',
+    // Common
+    back: '← Volver', done: 'Listo', retry: 'Reintentar', loading: 'Cargando...',
+    seconds: 's', approxSeconds: '~5s/bloque',
+  },
+  en: {
+    // Nav
+    receive: 'Receive', pay: 'Pay', send: 'Send', history: 'History',
+    // Home
+    portfolioTotal: 'Total Portfolio', available: 'Available to pay',
+    recent: 'Recent', noTxs: 'No transactions yet.',
+    noTxsSub: 'Make your first payment to see it here.',
+    investments: 'Investments', stellarMxn: 'Stellar (MXN)',
+    convertPlus: 'Convert +', seeAll: 'See all',
+    sent: 'Sent', received: 'Received', converted: 'Converted →',
+    // Convert modal
+    convertTitle: 'Convert MXN →', youWillReceive: "You'll receive",
+    rate: 'Rate:', confirmConvert: 'Confirm Conversion', cancel: 'Cancel',
+    maxAvail: 'Max available:', avail: 'Available:',
+    // Pay screen (Cobrar)
+    receiveQR: 'Receive with QR', receiveQRSub: 'Generate a QR code to receive payments',
+    howMuch: 'How much do you want to receive?', generateQR: 'Generate QR',
+    waitingPayment: 'Waiting for payment...', simulatePayment: 'Simulate Payment (Demo)',
+    paymentReceived: 'Payment Received!', newCharge: 'New Charge',
+    timeLeft: 'Time remaining', shareQR: 'Share this QR',
+    // Receive screen (Pagar)
+    payQR: 'Pay with QR', payQRSub: 'Scan or paste a Stellar payment code',
+    simulateScan: 'Simulate Scan (Demo)', pasteURI: 'Or paste a payment URI:',
+    continueBtn: 'Continue →', paymentDetails: 'Payment details',
+    destination: 'Destination', amount: 'Amount', memo: 'Memo',
+    confirmPay: 'Confirm & Pay', paymentSent: 'Payment Sent!',
+    amountToPay: 'Amount to pay (MXN)', stellarXLM: 'on Stellar',
+    // Transfer screen
+    sendMoney: 'Send Money', sendMoneySub: 'Transfer to any Stellar address',
+    sendFrom: 'Send from', stellarAddr: 'Stellar Address',
+    toWhom: 'To whom', recipientPlaceholder: 'Recipient name or alias',
+    amountToSend: 'Amount to send', transferSummary: 'Transfer summary',
+    to: 'To', youSend: 'You send', onNetwork: 'Network', networkFee: 'Network fee',
+    time: 'Time', confirmSend: 'Confirm transfer', transferSuccess: 'Transfer Successful!',
+    insufficientFunds: 'Insufficient funds. Available:',
+    invalidAddr: 'Invalid address. Must start with G and be 56 characters.',
+    // History
+    historyTitle: 'History', transactions: 'transactions', noHistory: 'No history yet.',
+    // Common
+    back: '← Back', done: 'Done', retry: 'Retry', loading: 'Loading...',
+    seconds: 's', approxSeconds: '~5s/block',
+  },
+}
+type T = typeof TRANS['es']
+const LangCtx = createContext<{ t: T; lang: 'es' | 'en'; toggle: () => void }>({
+  t: TRANS.es, lang: 'es', toggle: () => {},
+})
+const useT = () => useContext(LangCtx)
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const C = {
@@ -152,12 +245,13 @@ function Confetti({ show }: { show: boolean }) {
 
 // ─── BOTTOM NAV ───────────────────────────────────────────────────────────────
 function BottomNav({ view, setView }: { view: string; setView: (v: string) => void }) {
+  const { t } = useT()
   const items = [
     { id: 'home', label: 'Inicio', icon: '⌂' },
-    { id: 'pay', label: 'Cobrar', icon: '↓' },
-    { id: 'receive', label: 'Pagar', icon: '↑' },
-    { id: 'transfer', label: 'Enviar', icon: '→' },
-    { id: 'history', label: 'Historial', icon: '☰' },
+    { id: 'pay', label: t.receive, icon: '↓' },
+    { id: 'receive', label: t.pay, icon: '↑' },
+    { id: 'transfer', label: t.send, icon: '→' },
+    { id: 'history', label: t.history, icon: '☰' },
     { id: 'settings', label: 'Config', icon: '⚙' },
   ]
   return (
@@ -190,13 +284,14 @@ function BottomNav({ view, setView }: { view: string; setView: (v: string) => vo
 }
 
 function BackBtn({ onBack }: { onBack: () => void }) {
+  const { t } = useT()
   return (
     <button onClick={onBack} style={{
       background: 'none', border: 'none', color: C.textMuted,
       fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
       padding: '8px 0', fontWeight: 500,
     }}>
-      <span style={{ fontSize: 18 }}>←</span> Volver
+      {t.back}
     </button>
   )
 }
@@ -581,6 +676,7 @@ function Home({
   loading: boolean
   onRefresh: () => void
 }) {
+  const { t, lang, toggle } = useT()
   const [copied, setCopied] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [convertModal, setConvertModal] = useState<'USD' | 'CETES' | null>(null)
@@ -616,6 +712,12 @@ function Home({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {loading && <Spinner size={16} />}
+          <button onClick={toggle} style={{
+            background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
+            color: C.textMuted, fontSize: 12, cursor: 'pointer', padding: '6px 10px', fontWeight: 700,
+          }}>
+            {lang === 'es' ? '🌐 EN' : '🌐 ES'}
+          </button>
           <button onClick={onRefresh} style={{
             background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
             color: C.textMuted, fontSize: 13, cursor: 'pointer', padding: '6px 10px',
@@ -640,7 +742,7 @@ function Home({
             background: 'radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%)',
           }} />
           <p style={{ fontSize: 11, color: C.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
-            Portfolio Total
+            {t.portfolioTotal}
           </p>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
             <span style={{ fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: '-0.03em', animation: 'numberTick 0.4s ease forwards' }}>
@@ -674,7 +776,7 @@ function Home({
             <p style={{ fontSize: 20, fontWeight: 800, color: C.text, letterSpacing: '-0.02em' }}>${fmt(mxn)}</p>
             {convertFlash
               ? <p style={{ fontSize: 10, color: C.red, marginTop: 4, fontWeight: 700 }}>−${fmt(convertFlash.mxn)} → {convertFlash.asset}</p>
-              : <p style={{ fontSize: 10, color: C.green, marginTop: 4 }}>Disponible para pagar</p>
+              : <p style={{ fontSize: 10, color: C.green, marginTop: 4 }}>{t.available}</p>
             }
           </div>
           <div onClick={() => { setConvertModal('USD'); setConvertAmt('') }} style={{
@@ -685,7 +787,7 @@ function Home({
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <p style={{ fontSize: 10, color: C.textDim, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>USD</p>
-              <span style={{ fontSize: 10, color: C.primary, fontWeight: 700 }}>Convertir +</span>
+              <span style={{ fontSize: 10, color: C.primary, fontWeight: 700 }}>{t.convertPlus}</span>
             </div>
             <p style={{ fontSize: 20, fontWeight: 800, color: C.text, letterSpacing: '-0.02em' }}>${fmt(usdc)}</p>
             <p style={{ fontSize: 10, color: C.textMuted, marginTop: 4 }}>≈ ${fmt(usdc * DR.USDC_MXN)} MXN</p>
@@ -702,7 +804,7 @@ function Home({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <p style={{ fontSize: 10, color: C.textDim, textTransform: 'uppercase', letterSpacing: '0.1em' }}>CETES</p>
-              <span style={{ fontSize: 10, color: C.gold, fontWeight: 700 }}>Convertir +</span>
+              <span style={{ fontSize: 10, color: C.gold, fontWeight: 700 }}>{t.convertPlus}</span>
             </div>
             <p style={{ fontSize: 22, fontWeight: 800, color: C.gold, letterSpacing: '-0.02em' }}>${fmt(cetes)}</p>
             <p style={{ fontSize: 10, color: C.gold, marginTop: 2 }}>11.25% anual • Inversión</p>
@@ -744,7 +846,7 @@ function Home({
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                   <h3 style={{ fontSize: 20, fontWeight: 800, color: C.text }}>
-                    Convertir MXN → {convertModal}
+                    {t.convertTitle} {convertModal}
                   </h3>
                   <button onClick={() => setConvertModal(null)} style={{ background: 'none', border: 'none', color: C.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button>
                 </div>
@@ -760,17 +862,17 @@ function Home({
                   <span style={{ fontSize: 15, color: C.textMuted, fontWeight: 600 }}>MXN</span>
                 </div>
                 <p style={{ fontSize: 11, color: insufficient ? C.red : C.textDim, textAlign: 'right', marginBottom: 16 }}>
-                  {insufficient ? `⚠️ Máx. disponible: $${fmt(maxMxn)} MXN` : `Disponible: $${fmt(maxMxn)} MXN`}
+                  {insufficient ? `⚠️ ${t.maxAvail} $${fmt(maxMxn)} MXN` : `${t.avail} $${fmt(maxMxn)} MXN`}
                 </p>
 
                 {mxnAmt > 0 && !insufficient && (
                   <div style={{ background: `rgba(${isCetes ? '245,158,11' : '99,102,241'},0.08)`, border: `1px solid ${isCetes ? C.gold : C.primary}44`, borderRadius: 12, padding: '12px 16px', marginBottom: 16 }}>
-                    <p style={{ fontSize: 12, color: C.textDim, marginBottom: 6 }}>Recibirás</p>
+                    <p style={{ fontSize: 12, color: C.textDim, marginBottom: 6 }}>{t.youWillReceive}</p>
                     <p style={{ fontSize: 24, fontWeight: 800, color: isCetes ? C.gold : C.primary }}>
                       ${fmt(resultAmt)} {convertModal}
                     </p>
                     <p style={{ fontSize: 11, color: C.textDim, marginTop: 4 }}>
-                      Tasa: 1 {convertModal} = ${fmt(rate)} MXN {isCetes ? '• 11.25% anual' : ''}
+                      {t.rate} 1 {convertModal} = ${fmt(rate)} MXN {isCetes ? '• 11.25% anual' : ''}
                     </p>
                   </div>
                 )}
@@ -792,10 +894,10 @@ function Home({
         {/* Quick actions */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 20, marginTop: 6 }}>
           {[
-            { label: 'Cobrar', icon: '↓', action: 'pay', color: C.green },
-            { label: 'Pagar', icon: '↑', action: 'receive', color: C.primary },
-            { label: 'Enviar', icon: '→', action: 'transfer', color: C.gold },
-            { label: 'Historial', icon: '☰', action: 'history', color: C.textMuted },
+            { label: t.receive, icon: '↓', action: 'pay', color: C.green },
+            { label: t.pay, icon: '↑', action: 'receive', color: C.primary },
+            { label: t.send, icon: '→', action: 'transfer', color: C.gold },
+            { label: t.history, icon: '☰', action: 'history', color: C.textMuted },
           ].map(a => (
             <button key={a.label} onClick={() => setView(a.action)} style={{
               background: C.card, border: `1px solid ${C.border}`,
@@ -828,7 +930,7 @@ function Home({
 
         {/* Transactions */}
         <p style={{ fontSize: 13, fontWeight: 700, color: C.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-          Recientes
+          {t.recent}
         </p>
 
         {/* Local USD/CETES sends/receives */}
@@ -845,7 +947,7 @@ function Home({
                 fontSize: 16, color: C.red, flexShrink: 0,
               }}>↑</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Enviado {tx.asset}</p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{t.sent} {tx.asset}</p>
                 <p style={{ fontSize: 11, color: C.textDim }}>{timeAgo(tx.createdAt)}</p>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -862,9 +964,9 @@ function Home({
             borderRadius: 14, padding: 24, textAlign: 'center',
             color: C.textDim, fontSize: 14,
           }}>
-            Sin transacciones aún.<br />
+            {t.noTxs}<br />
             <span style={{ fontSize: 12, marginTop: 4, display: 'block', color: C.textDim }}>
-              Haz tu primer pago para verlo aquí.
+              {t.noTxsSub}
             </span>
           </div>
         )}
@@ -946,6 +1048,7 @@ function PayScreen({
   onRefresh: () => void
   onReceive: (xlm: number) => void
 }) {
+  const { t } = useT()
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [amount, setAmount] = useState('')
   const [timeLeft, setTimeLeft] = useState(300)
@@ -1055,9 +1158,9 @@ function PayScreen({
       <div style={{ padding: '52px 20px 20px' }}>
         <BackBtn onBack={onBack} />
         <h2 style={{ fontSize: 22, fontWeight: 800, color: C.text, marginTop: 12, marginBottom: 4 }}>
-          Cobrar con QR
+          {t.receiveQR}
         </h2>
-        <p style={{ fontSize: 13, color: C.textMuted }}>Genera un QR para recibir pagos XLM</p>
+        <p style={{ fontSize: 13, color: C.textMuted }}>{t.receiveQRSub}</p>
       </div>
 
       <div style={{ padding: '0 20px' }}>
@@ -1131,7 +1234,7 @@ function PayScreen({
                 fontSize: 16, fontWeight: 700, cursor: (!amount || targetAmount <= 0) ? 'not-allowed' : 'pointer',
               }}
             >
-              Generar QR de Cobro →
+              {t.generateQR}
             </button>
           </div>
         )}
@@ -1178,7 +1281,7 @@ function PayScreen({
                   animation: 'ledgerPing 1.5s ease-in-out infinite',
                 }} />
                 <span style={{ fontSize: 14, color: C.textMuted }}>
-                  Esperando pago... <span style={{ color: timeLeft < 60 ? C.red : C.gold, fontWeight: 700 }}>{formatTime(timeLeft)}</span>
+                  {t.waitingPayment} <span style={{ color: timeLeft < 60 ? C.red : C.gold, fontWeight: 700 }}>{formatTime(timeLeft)}</span>
                 </span>
               </div>
 
@@ -1207,7 +1310,7 @@ function PayScreen({
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               }}>
                 {simulating ? <Spinner size={16} color="#fff" /> : ''}
-                {simulating ? 'Simulando...' : '⚡ Simular Pago'}
+                {simulating ? 'Simulando...' : `⚡ ${t.simulatePayment}`}
               </button>
             </div>
           </div>
@@ -1229,7 +1332,7 @@ function PayScreen({
             </div>
 
             <h3 style={{ fontSize: 26, fontWeight: 900, color: C.green, marginBottom: 8 }}>
-              ¡Pago Recibido!
+              {t.paymentReceived}
             </h3>
             <p style={{ fontSize: 36, fontWeight: 900, color: C.text, marginBottom: 4 }}>
               {fmt(receivedAmount, 4)} XLM
@@ -1273,7 +1376,7 @@ function PayScreen({
               border: 'none', borderRadius: 14, color: '#fff',
               fontSize: 15, fontWeight: 700, cursor: 'pointer',
             }}>
-              Nuevo Cobro
+              {t.newCharge}
             </button>
           </div>
         )}
@@ -1305,6 +1408,7 @@ function ReceiveScreen({
   onRefresh: () => void
   onSend: (xlm: number) => void
 }) {
+  const { t } = useT()
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [uriInput, setUriInput] = useState('')
   const [parsed, setParsed] = useState<ParsedPayment | null>(null)
@@ -1473,9 +1577,9 @@ function ReceiveScreen({
       <div style={{ padding: '52px 20px 20px' }}>
         <BackBtn onBack={onBack} />
         <h2 style={{ fontSize: 22, fontWeight: 800, color: C.text, marginTop: 12, marginBottom: 4 }}>
-          Pagar con QR
+          {t.payQR}
         </h2>
-        <p style={{ fontSize: 13, color: C.textMuted }}>Escanea o pega un código de pago Stellar</p>
+        <p style={{ fontSize: 13, color: C.textMuted }}>{t.payQRSub}</p>
       </div>
 
       <div style={{ padding: '0 20px' }}>
@@ -1531,12 +1635,12 @@ function ReceiveScreen({
                 border: 'none', borderRadius: 12, color: '#fff',
                 fontSize: 15, fontWeight: 700, cursor: 'pointer',
               }}>
-                ⚡ Simular Escaneo (Demo)
+                ⚡ {t.simulateScan}
               </button>
             </div>
 
             <p style={{ fontSize: 13, color: C.textMuted, textAlign: 'center', marginBottom: 12 }}>
-              O pega un URI de pago:
+              {t.pasteURI}
             </p>
 
             <textarea
@@ -1568,7 +1672,7 @@ function ReceiveScreen({
                 fontSize: 14, fontWeight: 700, cursor: uriInput.trim() ? 'pointer' : 'not-allowed',
               }}
             >
-              Continuar →
+              {t.continueBtn}
             </button>
           </div>
         )}
@@ -1581,16 +1685,16 @@ function ReceiveScreen({
               borderRadius: 20, padding: 20, marginBottom: 16,
             }}>
               <p style={{ fontSize: 12, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>
-                Detalles del pago
+                {t.paymentDetails}
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: C.textDim }}>Destino</span>
+                  <span style={{ fontSize: 13, color: C.textDim }}>{t.destination}</span>
                   <span style={{ fontSize: 12, fontFamily: 'monospace', color: C.text }}>{abbrev(parsed.destination)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: C.textDim }}>Monto</span>
+                  <span style={{ fontSize: 13, color: C.textDim }}>{t.amount}</span>
                   <span style={{ fontSize: 18, fontWeight: 800, color: C.green }}>
                     ${fmt(parseFloat(directAmount || parsed.amount || '0') * DR.XLM_MXN)} MXN
                   </span>
@@ -1606,7 +1710,7 @@ function ReceiveScreen({
 
             {/* Always show editable amount */}
             <div style={{ marginBottom: 16 }}>
-              <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Monto a pagar (MXN)</p>
+              <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t.amountToPay}</p>
               <div style={{
                 background: C.card, border: `1.5px solid ${C.green}40`,
                 borderRadius: 14, padding: '12px 16px',
@@ -1707,7 +1811,7 @@ function ReceiveScreen({
                 border: `1px solid ${C.border}`, borderRadius: 12,
                 color: C.textMuted, fontSize: 14, cursor: 'pointer',
               }}>
-                ← Cancelar
+                {t.cancel}
               </button>
               <button
                 onClick={handleConfirm}
@@ -1720,7 +1824,7 @@ function ReceiveScreen({
                   animation: 'glow 3s ease-in-out infinite',
                 }}
               >
-                Confirmar Pago →
+                {t.confirmPay}
               </button>
             </div>
           </div>
@@ -1792,7 +1896,7 @@ function ReceiveScreen({
                 </div>
 
                 <h3 style={{ fontSize: 26, fontWeight: 900, color: C.green, marginBottom: 8 }}>
-                  ¡Pago Enviado!
+                  {t.paymentSent}
                 </h3>
                 <p style={{ fontSize: 14, color: C.textMuted, marginBottom: 20 }}>
                   Transacción confirmada en Stellar Testnet
@@ -1881,6 +1985,7 @@ function HistoryScreen({
   onRefresh: () => void
   onBack: () => void
 }) {
+  const { t } = useT()
   const [expanded, setExpanded] = useState<string | null>(null)
   const investTxs = loadInvestTxs()
 
@@ -1892,8 +1997,8 @@ function HistoryScreen({
         <BackBtn onBack={onBack} />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
           <div>
-            <h2 style={{ fontSize: 22, fontWeight: 800, color: C.text, marginBottom: 4 }}>Historial</h2>
-            <p style={{ fontSize: 12, color: C.textMuted }}>{totalCount} transacciones</p>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: C.text, marginBottom: 4 }}>{t.historyTitle}</h2>
+            <p style={{ fontSize: 12, color: C.textMuted }}>{totalCount} {t.transactions}</p>
           </div>
           <button onClick={onRefresh} style={{
             background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
@@ -1919,14 +2024,14 @@ function HistoryScreen({
             borderRadius: 16, padding: 32, textAlign: 'center',
             color: C.textDim, fontSize: 14,
           }}>
-            Sin transacciones aún.
+            {t.noHistory}
           </div>
         )}
 
         {/* Investment transactions */}
         {investTxs.length > 0 && (
           <>
-            <p style={{ fontSize: 11, color: C.textDim, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, marginTop: 4 }}>Inversiones</p>
+            <p style={{ fontSize: 11, color: C.textDim, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, marginTop: 4 }}>{t.investments}</p>
             {investTxs.map(tx => (
               <div key={tx.id} style={{
                 background: C.card, border: `1px solid ${C.border}`, borderRadius: 14,
@@ -1944,7 +2049,7 @@ function HistoryScreen({
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 14, fontWeight: 600, color: C.text }}>
-                      {tx.type === 'converted' ? `Conversión → ${tx.asset}` : tx.type === 'received' ? `Recibido ${tx.asset}` : `Enviado ${tx.asset}`}
+                      {tx.type === 'converted' ? `${t.converted} ${tx.asset}` : tx.type === 'received' ? `${t.received} ${tx.asset}` : `${t.sent} ${tx.asset}`}
                     </p>
                     <p style={{ fontSize: 11, color: C.textDim }}>{timeAgo(tx.createdAt)}</p>
                   </div>
@@ -1957,7 +2062,7 @@ function HistoryScreen({
                 </div>
               </div>
             ))}
-            {transactions.length > 0 && <p style={{ fontSize: 11, color: C.textDim, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, marginTop: 4 }}>Stellar (MXN)</p>}
+            {transactions.length > 0 && <p style={{ fontSize: 11, color: C.textDim, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, marginTop: 4 }}>{t.stellarMxn}</p>}
           </>
         )}
 
@@ -2246,6 +2351,7 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
   onRefresh: () => void
   onSend: (xlm: number) => void
 }) {
+  const { t } = useT()
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [destAddr, setDestAddr] = useState('')
   const [amount, setAmount] = useState('')
@@ -2334,8 +2440,8 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
       <Confetti show={showConfetti} />
       <div style={{ padding: '52px 20px 16px' }}>
         <BackBtn onBack={onBack} />
-        <h2 style={{ fontSize: 24, fontWeight: 800, color: C.text, marginTop: 12 }}>Enviar Dinero</h2>
-        <p style={{ fontSize: 13, color: C.textMuted }}>Transfiere a cualquier dirección Stellar</p>
+        <h2 style={{ fontSize: 24, fontWeight: 800, color: C.text, marginTop: 12 }}>{t.sendMoney}</h2>
+        <p style={{ fontSize: 13, color: C.textMuted }}>{t.sendMoneySub}</p>
       </div>
 
       <div style={{ padding: '0 20px' }}>
@@ -2349,7 +2455,7 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
         {step === 1 && (
           <div className="fade-in">
             {/* Asset selector */}
-            <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Enviar desde</p>
+            <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t.sendFrom}</p>
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
               {(['MXN', 'USD', 'CETES'] as const).map(a => (
                 <button key={a} onClick={() => { setAsset(a); setAmount('') }} style={{
@@ -2363,13 +2469,13 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
 
             {/* Destination */}
             <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              {isStellarAsset ? 'Dirección Stellar' : 'Para quién'}
+              {isStellarAsset ? t.stellarAddr : t.toWhom}
             </p>
             <div style={{ position: 'relative', marginBottom: 6 }}>
               <input
                 value={destAddr}
                 onChange={e => setDestAddr(e.target.value)}
-                placeholder={isStellarAsset ? 'G... dirección Stellar' : 'Nombre o alias del destinatario'}
+                placeholder={isStellarAsset ? 'G... dirección Stellar' : t.recipientPlaceholder}
                 style={{
                   width: '100%', padding: '14px 40px 14px 14px', boxSizing: 'border-box',
                   background: C.card, border: `1.5px solid ${destAddr && !isValidAddr ? C.red : isValidAddr ? C.green : C.border}`,
@@ -2379,11 +2485,11 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
               />
               {isValidAddr && <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: C.green, fontSize: 16 }}>✓</span>}
             </div>
-            {isStellarAsset && destAddr && !isValidAddr && <p style={{ fontSize: 11, color: C.red, marginBottom: 8 }}>Dirección inválida. Debe comenzar con G y tener 56 caracteres.</p>}
+            {isStellarAsset && destAddr && !isValidAddr && <p style={{ fontSize: 11, color: C.red, marginBottom: 8 }}>{t.invalidAddr}</p>}
             {!isStellarAsset && destAddr && destAddr.trim().length < 2 && <p style={{ fontSize: 11, color: C.red, marginBottom: 8 }}>Ingresa al menos 2 caracteres.</p>}
 
             {/* Amount */}
-            <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 8, marginTop: 16, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Monto a enviar</p>
+            <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 8, marginTop: 16, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t.amountToSend}</p>
             <div style={{
               background: C.card, border: `1.5px solid ${insufficientFunds ? C.red : C.border}`, borderRadius: 14,
               padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
@@ -2407,7 +2513,7 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
                 {asset === 'CETES' && inputVal > 0 ? `Inversión CETES • 11.25% anual` : ''}
               </p>
               <p style={{ fontSize: 11, color: C.textMuted }}>
-                Disponible: <span style={{ color: assetColor, fontWeight: 600 }}>{assetSymbol}{fmt(available)} {asset}</span>
+                {t.avail} <span style={{ color: assetColor, fontWeight: 600 }}>{assetSymbol}{fmt(available)} {asset}</span>
               </p>
             </div>
             {insufficientFunds && (
@@ -2418,7 +2524,7 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
               }}>
                 <span style={{ fontSize: 16 }}>⚠️</span>
                 <p style={{ fontSize: 13, color: C.red, fontWeight: 600 }}>
-                  Fondos insuficientes. Disponible: {assetSymbol}{fmt(available)} {asset}
+                  {t.insufficientFunds} {assetSymbol}{fmt(available)} {asset}
                 </p>
               </div>
             )}
@@ -2435,7 +2541,7 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
                 boxShadow: isValidAddr && inputVal > 0 && !insufficientFunds ? `0 8px 24px ${C.goldGlow}` : 'none',
                 transition: 'all 0.3s',
               }}>
-              Continuar →
+              {t.continueBtn}
             </button>
           </div>
         )}
@@ -2443,17 +2549,17 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
         {step === 2 && (
           <div className="slide-up">
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 20, marginBottom: 16 }}>
-              <p style={{ fontSize: 12, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Resumen de transferencia</p>
+              <p style={{ fontSize: 12, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>{t.transferSummary}</p>
               {[
-                { label: 'Para', value: isStellarAsset ? abbrev(destAddr) : destAddr },
-                { label: 'Envías', value: `${assetSymbol}${fmt(inputVal)} ${asset}`, color: assetColor },
+                { label: t.to, value: isStellarAsset ? abbrev(destAddr) : destAddr },
+                { label: t.youSend, value: `${assetSymbol}${fmt(inputVal)} ${asset}`, color: assetColor },
                 ...(asset === 'MXN' ? [
-                  { label: 'En red', value: `${xlmVal.toFixed(4)} XLM`, color: C.primary },
-                  { label: 'Comisión red', value: '0.000100 XLM (~$0.002)' },
+                  { label: t.onNetwork, value: `${xlmVal.toFixed(4)} XLM`, color: C.primary },
+                  { label: t.networkFee, value: '0.000100 XLM (~$0.002)' },
                 ] : [
                   { label: 'Tipo', value: asset === 'USD' ? 'Transferencia USD simulada' : 'Transferencia CETES simulada' },
                 ]),
-                { label: 'Tiempo', value: '~5 segundos', color: C.green },
+                { label: t.time, value: '~5 segundos', color: C.green },
               ].map(r => (
                 <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${C.border}` }}>
                   <span style={{ fontSize: 13, color: C.textDim }}>{r.label}</span>
@@ -2479,13 +2585,13 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
               color: '#fff', fontSize: 16, fontWeight: 700, cursor: 'pointer',
               boxShadow: `0 8px 24px ${C.goldGlow}`, marginBottom: 10,
             }}>
-              Confirmar Transferencia ⚡
+              {t.confirmSend} ⚡
             </button>
             <button onClick={() => setStep(1)} style={{
               width: '100%', padding: '14px', borderRadius: 14, border: `1px solid ${C.border}`,
               background: 'none', color: C.textMuted, fontSize: 14, fontWeight: 600, cursor: 'pointer',
             }}>
-              Cancelar
+              {t.cancel}
             </button>
           </div>
         )}
@@ -2555,7 +2661,7 @@ function TransferScreen({ wallet, balances, investBalances, updateInvest, onBack
               width: '100%', padding: '16px', borderRadius: 14, border: 'none',
               background: `linear-gradient(135deg, ${C.primary}, #8b5cf6)`,
               color: '#fff', fontSize: 16, fontWeight: 700, cursor: 'pointer',
-            }}>Listo</button>
+            }}>{t.done}</button>
           </div>
         )}
       </div>
@@ -2601,6 +2707,16 @@ function saveSkipUntil(ts: number) {
 }
 
 export default function App() {
+  const [lang, setLang] = useState<'es' | 'en'>(() =>
+    (localStorage.getItem('centurion_lang') as 'es' | 'en') || 'es'
+  )
+  const toggleLang = useCallback(() => setLang(l => {
+    const next = l === 'es' ? 'en' : 'es'
+    localStorage.setItem('centurion_lang', next)
+    return next
+  }), [])
+  const t = TRANS[lang]
+
   const [appState, setAppState] = useState<AppState>('wallet-setup')
   const [wallet, setWallet] = useState<{ publicKey: string; secretKey: string } | null>(null)
   const [view, setView] = useState('home')
@@ -2757,6 +2873,7 @@ export default function App() {
   }, [setBalancesPersisted])
 
   return (
+    <LangCtx.Provider value={{ t, lang, toggle: toggleLang }}>
     <div style={{
         width: '100vw', height: '100dvh', maxWidth: 430, margin: '0 auto',
         background: C.bg, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
@@ -2836,5 +2953,6 @@ export default function App() {
           </>
         )}
       </div>
+    </LangCtx.Provider>
   )
 }
