@@ -53,7 +53,7 @@ export async function getCurrentRate(
 
   try {
     const paths = await server
-      .strictReceivePaths(from, to, amount)
+      .strictReceivePaths([from], to, amount)
       .call();
 
     if (!paths.records.length) {

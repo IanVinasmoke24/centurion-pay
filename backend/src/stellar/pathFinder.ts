@@ -21,7 +21,7 @@ export async function findPaymentPaths(
 
   try {
     const pathsResponse = await server
-      .strictReceivePaths(sendAsset, destAsset, destAmount)
+      .strictReceivePaths([sendAsset], destAsset, destAmount)
       .call();
 
     const paths: PathOption[] = pathsResponse.records.map((record) => {

@@ -26,8 +26,10 @@ function getGOLDAsset(): Asset {
   return new Asset('GOLD', config.GOLD_ISSUER_PUBLIC);
 }
 
-export function getAsset(code: 'MXN' | 'USD' | 'GOLD'): Asset {
+export function getAsset(code: AssetCode): Asset {
   switch (code) {
+    case 'XLM':
+      return NATIVE;
     case 'MXN':
       return getMXNAsset();
     case 'USD':

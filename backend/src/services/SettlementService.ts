@@ -36,7 +36,7 @@ export function startPaymentStream(merchantAddress: string): StreamClose {
     .stream({
       onmessage: async (record) => {
         try {
-          await handleIncomingPayment(record as Horizon.ServerApi.PaymentOperationRecord, merchantAddress);
+          await handleIncomingPayment(record as unknown as Horizon.ServerApi.PaymentOperationRecord, merchantAddress);
         } catch (err) {
           logger.error('Error handling payment stream event', { err });
         }
